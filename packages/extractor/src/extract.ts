@@ -113,6 +113,38 @@ export function extractDocument(
   } = options;
 
   const warnings: string[] = [];
+
+  // Non-HTML content (plain text, source files, RFC-style documents)
+  // must NOT go through the Readability pipeline: Readability treats
+  // headers/title pages as boilerplate and discards them, silently
+  // dropping the document's beginning. Detection: no <html/<body/<head
+  // tags and an overwhelmingly text character distribution.
+  if (isPlainText(html)) {
+    const content =
+      html.length > maxContentLength
+        ? (warnings.push(`content-truncated-at-${maxContentLength}-chars`),
+          html.slice(0, maxContentLength))
+        : html;
+    return {
+      url,
+      title: derivePlainTextTitle(html),
+      content,
+      format,
+      metadata: undefined,
+      headings: [],
+      links: [],
+      tables: [],
+      sections: [
+        { title: "", content, offsets: [0, content.length] as [number, number] },
+      ],
+      fingerprint: fingerprintText(content),
+      statusCode,
+      fetchedAt: new Date().toISOString(),
+      rawBytes: html.length,
+      warnings,
+    };
+  }
+
   const dom = parseHTML(html);
   const document = dom.document;
 
@@ -238,6 +270,36 @@ function jsonLdDate(
   for (const node of jsonLd) {
     const value = node[key];
     if (typeof value === "string") return normalizeIsoDate(value);
+  }
+  return undefined;
+}
+
+
+/** Heuristic: does this input look like plain text rather than HTML? */
+function isPlainText(input: string): boolean {
+  const head = input.slice(0, 2048).toLowerCase();
+  const hasHtml =
+    head.includes("<html") ||
+    head.includes("<body") ||
+    head.includes("<head") ||
+    head.includes("<!doctype") ||
+    head.includes("<div") ||
+    head.includes("<p>") ||
+    head.includes("<p ") ||
+    head.includes("<span");
+  if (hasHtml) return false;
+  // Mostly-tags detection for fragment inputs: angle brackets should
+  // be rare in genuine plain text.
+  const sample = input.slice(0, 4096);
+  const brackets = (sample.match(/[<>]/g) ?? []).length;
+  return brackets < sample.length * 0.02;
+}
+
+/** Derive a title for plain-text documents: first meaningful line. */
+function derivePlainTextTitle(input: string): string | undefined {
+  for (const line of input.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.length >= 3) return trimmed.slice(0, 200);
   }
   return undefined;
 }

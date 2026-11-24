@@ -187,3 +187,61 @@ describe("estimateTokens", () => {
     expect(estimateTokens("")).toBe(0);
   });
 });
+
+describe("plain-text documents bypass readability", () => {
+  const RFC_STYLE = `Network Working Group                                      R. Fielding
+Request for Comments: 2616                                   UC Irvine
+Obsoletes: 2068
+
+                Hypertext Transfer Protocol -- HTTP/1.1
+
+Status of This Memo
+
+   This document specifies an Internet standards track protocol.`;
+
+  it("keeps the document beginning that readability would discard", () => {
+    const doc = extractDocument(RFC_STYLE, "https://example.org/rfc.txt", 200);
+    // THE regression: before this path, readability dropped the title
+    // page and 'Hypertext' never survived extraction.
+    expect(doc.content).toContain("Hypertext Transfer Protocol");
+    expect(doc.content).toContain("Network Working Group");
+    expect(doc.content).toContain("Status of This Memo");
+    expect(doc.title).toContain("Network Working Group");
+    expect(doc.warnings).toEqual([]);
+  });
+
+  it("detects HTML and does not take the plain-text path", () => {
+    const html = `<!DOCTYPE html><html><body><article>
+      <h1>Title Page</h1>
+      <p>Network Working Group content inside HTML.</p>
+    </article></body></html>`;
+    const doc = extractDocument(html, "https://example.org/doc", 200);
+    expect(doc.content).toContain("Network Working Group");
+    // HTML path still extracts headings/sections.
+    expect(doc.headings.length).toBeGreaterThan(0);
+  });
+
+  it("source-code-like text extracts verbatim", () => {
+    const code = `function extractDocument(html: string): void {
+  // comments and code with <angle> chars would look tag-ish
+  return parse(html);
+}`;
+    const doc = extractDocument(code, "https://example.org/main.ts", 200);
+    expect(doc.content).toContain("function extractDocument");
+  });
+
+  it("truncation caps apply on the plain-text path", () => {
+    const big = "x".repeat(300_000);
+    const doc = extractDocument(big, "https://example.org/big.txt", 200, {
+      maxContentLength: 100_000,
+    });
+    expect(doc.content.length).toBe(100_000);
+    expect(doc.warnings.some((w) => w.includes("truncated"))).toBe(true);
+  });
+
+  it("fragments with heavy tag density are NOT treated as plain text", () => {
+    const fragment = "<div>lorem</div><div>ipsum</div><div>dolor</div><div>sit</div>";
+    const doc = extractDocument(fragment, "https://example.org/f", 200);
+    expect(doc.content.toLowerCase()).toContain("lorem");
+  });
+});
