@@ -268,6 +268,18 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  apps/docs:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(supports-color@7.2.0)(tsx@4.23.15)
+
   apps/worker:
     dependencies:
       '@querynx/config':
@@ -788,6 +800,37 @@ importers:
         version: 3.2.7(@types/node@22.20.5)(supports-color@7.2.0)(tsx@4.23.15)
 
   packages/scheduler:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(supports-color@7.2.0)(tsx@4.23.15)
+
+  packages/search:
+    dependencies:
+      '@querynx/cache':
+        specifier: workspace:*
+        version: link:../cache
+      '@querynx/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@querynx/providers':
+        specifier: workspace:*
+        version: link:../providers
+      '@querynx/ranking':
+        specifier: workspace:*
+        version: link:../ranking
+      '@querynx/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@querynx/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       '@types/node':
         specifier: ^22.10.2

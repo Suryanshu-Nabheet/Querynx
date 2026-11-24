@@ -1,0 +1,20 @@
+{
+  "name": "@querynx/docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Querynx documentation site",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve site -l 3459",
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

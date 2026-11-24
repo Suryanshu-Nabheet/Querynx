@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self Hosting — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="self-hosting">Self-Hosting</h2>
+<h3 id="docker-compose-stack">Docker Compose stack</h3>
+<pre><code class="lang-bash">git clone https://github.com/Suryanshu-Nabheet/Querynx.git
+cd Querynx
+echo &quot;SEARXNG_SECRET=$(openssl rand -hex 32)&quot; &gt; .env
+docker compose -f infrastructure/docker/docker-compose.yml up -d</code></pre>
+<table>
+<thead><tr><th>Service</th><th>Address</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>api</td><td>http://localhost:3001</td><td>Querynx HTTP API</td></tr>
+<tr><td>searxng</td><td>internal</td><td>Keyless metasearch backend</td></tr>
+</tbody>
+</table>
+<p>Ports bind to 127.0.0.1 — the stack is private to the host. Expose</p>
+<p>via a TLS-terminating reverse proxy for network access.</p>
+<h3 id="configuration-reference">Configuration reference</h3>
+<p>All configuration is environment-driven; no keys are required.</p>
+<table>
+<thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>PORT / HOST</td><td>3001 / 127.0.0.1</td><td>API listen</td></tr>
+<tr><td>QUERYNX_API_KEYS</td><td>empty (open)</td><td>Comma-separated keys; empty disables auth</td></tr>
+<tr><td>SEARXNG_BASE_URL</td><td>set by compose</td><td>Search backend</td></tr>
+<tr><td>BRAVE_API_KEY / TAVILY_API_KEY</td><td>—</td><td>Additional providers</td></tr>
+<tr><td>DATABASE_URL</td><td>—</td><td>Postgres persistence (documents, jobs, keys, usage)</td></tr>
+<tr><td>SEARCH_CACHE_TTL_MS</td><td>300000</td><td>Result cache TTL</td></tr>
+<tr><td>PRODUCER_CONCURRENCY</td><td>4</td><td>Provider fan-out width</td></tr>
+<tr><td>ANONYMOUS_RATE_LIMIT_PER_MIN</td><td>30</td><td>Per-identity request budget</td></tr>
+<tr><td>EMBEDDINGS_BASE_URL + MODEL</td><td>—</td><td>OpenAI-compatible semantic embeddings</td></tr>
+<tr><td>QUERYNX_ALLOW_PRIVATE_NETWORKS</td><td>false</td><td>Operator intranet opt-in</td></tr>
+</tbody>
+</table>
+<h3 id="production-checklist">Production checklist</h3>
+<ul>
+<li>[ ] Set QUERYNX_API_KEYS to strong generated values</li>
+</ul>
+<ul>
+<li>[ ] Terminate TLS in front (Caddy/Traefik/nginx)</li>
+</ul>
+<ul>
+<li>[ ] Keep 127.0.0.1 bindings; expose via the proxy only</li>
+</ul>
+<ul>
+<li>[ ] Fresh SEARXNG_SECRET</li>
+</ul>
+<ul>
+<li>[ ] DATABASE_URL for durable corpus and jobs</li>
+</ul>
+<ul>
+<li>[ ] LOG_LEVEL=warn for production noise</li>
+</ul>
+<ul>
+<li>[ ] Review SECURITY.md threat model</li>
+</ul>
+<h3 id="workers">Workers</h3>
+<p>Single-instance deployments run jobs in-process (POST /v1/jobs).</p>
+<p>Dedicated fleets run the worker service:</p>
+<pre><code class="lang-bash">QUERYNX_URL=... pnpm --filter @querynx/worker start</code></pre>
+<p>Crawl, index and research handlers plus the scheduler poll loop;</p>
+<p>metrics on the worker's side port.</p>
+</main>
+</div>
+</body>
+</html>

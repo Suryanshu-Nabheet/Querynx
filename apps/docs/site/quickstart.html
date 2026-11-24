@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickstart — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="quickstart">Quickstart</h2>
+<p>Get a working, keyless Querynx instance in under five minutes.</p>
+<h3 id="docker-recommended">Docker (recommended)</h3>
+<pre><code class="lang-bash">git clone https://github.com/Suryanshu-Nabheet/Querynx.git
+cd Querynx
+echo &quot;SEARXNG_SECRET=$(openssl rand -hex 32)&quot; &gt; .env
+docker compose -f infrastructure/docker/docker-compose.yml up -d</code></pre>
+<p>Verify the stack:</p>
+<pre><code class="lang-bash">curl http://localhost:3001/health
+# {&quot;status&quot;:&quot;ok&quot;,&quot;version&quot;:&quot;0.1.0&quot;}
+
+curl -X POST http://localhost:3001/v1/search \
+  -H 'content-type: application/json' \
+  -d '{&quot;query&quot;: &quot;hello world&quot;}'</code></pre>
+<p>The bundled SearXNG backend needs no API keys, so search works</p>
+<p>immediately. Add <code>BRAVE_API_KEY</code> or <code>TAVILY_API_KEY</code> to the api</p>
+<p>service environment for additional providers.</p>
+<h3 id="local-development">Local development</h3>
+<p>Requires Node.js &gt;= 22 and pnpm &gt;= 9.</p>
+<pre><code class="lang-bash">pnpm install
+pnpm test                    # full workspace test suite
+pnpm --filter @querynx/api dev    # API on http://127.0.0.1:3001</code></pre>
+<p>Open development mode (no API key required):</p>
+<pre><code class="lang-bash">QUERYNX_API_KEYS= pnpm --filter @querynx/api dev</code></pre>
+<h3 id="your-first-requests">Your first requests</h3>
+<p>Search:</p>
+<pre><code class="lang-bash">curl -X POST http://127.0.0.1:3001/v1/search \
+  -H 'content-type: application/json' \
+  -d '{&quot;query&quot;: &quot;postgres mvcc&quot;, &quot;maxResults&quot;: 5}'</code></pre>
+<p>Extract a page:</p>
+<pre><code class="lang-bash">curl -X POST http://127.0.0.1:3001/v1/extract \
+  -H 'content-type: application/json' \
+  -d '{&quot;urls&quot;: [&quot;https://example.com/article&quot;]}'</code></pre>
+<p>Run bounded research:</p>
+<pre><code class="lang-bash">curl -X POST http://127.0.0.1:3001/v1/research \
+  -H 'content-type: application/json' \
+  -d '{&quot;objective&quot;: &quot;how does mvcc work&quot;, &quot;mode&quot;: &quot;fast&quot;}'</code></pre>
+<h3 id="where-to-go-next">Where to go next</h3>
+<ul>
+<li><a href="/api.html">API reference</a> — every endpoint with schemas</li>
+</ul>
+<ul>
+<li><a href="/integrations.html">Integrations</a> — MCP, SDKs, LangChain, LlamaIndex</li>
+</ul>
+<ul>
+<li><a href="/self-hosting.html">Self-hosting</a> — production checklist</li>
+</ul>
+<ul>
+<li><a href="/architecture.html">Architecture</a> — how the pieces fit together</li>
+</ul>
+</main>
+</div>
+</body>
+</html>

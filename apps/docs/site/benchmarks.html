@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="benchmarks-quality">Benchmarks &amp; Quality</h2>
+<p>Everything here is measured, reproducible from the repo, and enforced</p>
+<p>by CI. No numbers are estimated or compared against competitors.</p>
+<h3 id="search-quality-judged-fixtures">Search quality (judged fixtures)</h3>
+<p>Method: packages/ranking/test/evaluation.test.ts — 7-document corpus,</p>
+<p>8 hand-judged queries, BM25 top-10.</p>
+<table>
+<thead><tr><th>Metric</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>MRR</td><td>0.88</td></tr>
+<tr><td>Recall@10</td><td>1.00</td></tr>
+<tr><td>NDCG@10</td><td>0.80</td></tr>
+<tr><td>Precision@10</td><td>0.125</td></tr>
+</tbody>
+</table>
+<p>CI enforces mrr &gt;= 0.6, recall@10 == 1, ndcg@10 &gt;= 0.5 — ranking</p>
+<p>regressions fail builds.</p>
+<h3 id="performance-hot-paths">Performance (hot paths)</h3>
+<p>Method: benchmarks/bench/core.perf.test.ts, dev-laptop baselines with</p>
+<p>5-10x regression ceilings.</p>
+<table>
+<thead><tr><th>Benchmark</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>BM25 query over 2000-doc corpus</td><td>P50 0.66ms / P95 1.61ms</td></tr>
+<tr><td>BM25 index 500 docs</td><td>P50 49ms</td></tr>
+<tr><td>Extract realistic page</td><td>P50 4.2ms</td></tr>
+<tr><td>Federated merge 3×20 results</td><td>P50 4.6ms</td></tr>
+<tr><td>Cache stampede: 100 concurrent identical gets</td><td>1 compute</td></tr>
+<tr><td>Bounded concurrency 200 tasks @ 16-wide</td><td>peak exactly 16</td></tr>
+</tbody>
+</table>
+<h3 id="test-surface">Test surface</h3>
+<ul>
+<li>480+ test blocks across 32 packages</li>
+</ul>
+<ul>
+<li>Security attack scenarios (SSRF, exhaustion, leakage, injection)</li>
+</ul>
+<ul>
+<li>OpenAPI contract tests (spec vs live API)</li>
+</ul>
+<ul>
+<li>Measured perf benchmarks with CI ceilings</li>
+</ul>
+<ul>
+<li>End-to-end: Docker container boot + health probe on every push</li>
+</ul>
+</main>
+</div>
+</body>
+</html>

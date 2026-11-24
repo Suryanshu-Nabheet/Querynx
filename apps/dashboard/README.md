@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Querynx Console
 
-## Getting Started
+The developer dashboard for self-hosted Querynx instances. Functional
+surfaces over the live HTTP API — no fake metrics, no placeholder
+charts: every number on every page is fetched from your instance.
 
-First, run the development server:
+## Pages
+
+| Route | Purpose |
+|---|---|
+| `/` | Overview — API health, provider census, cache hit rate, index size |
+| `/search` | Federated search playground with freshness/max-results controls |
+| `/research` | Bounded research runner with evidence, gaps and termination reasons |
+| `/extract` | Multi-URL extraction with metadata display |
+| `/providers` | Circuit-breaker state, success rates and latencies per provider |
+| `/index` | Native corpus BM25 search with matched-term highlighting |
+
+## Connecting
+
+The connection bar (on every page) targets any Querynx instance:
+
+- **API base URL** — where your instance listens (default
+  `http://127.0.0.1:3001`)
+- **API key** — optional for open dev instances, required when
+  `QUERYNX_API_KEYS` is set on the server
+
+Settings persist in `localStorage`. Production deployments can bake a
+default target with `NEXT_PUBLIC_QUERYNX_URL` at build time.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter @querynx/dashboard dev    # dev server on :3000
+pnpm --filter @querynx/dashboard build  # production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The API URL for local development usually is `http://127.0.0.1:3001` —
+run the API with `pnpm --filter @querynx/api dev` alongside.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Design notes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Understated terminal aesthetic: monospace, dark surfaces, high-
+  contrast text. Infrastructure tooling, not marketing.
+- Every interactive control is labeled (`aria-label`) and keyboard-
+  operable; results render as semantic HTML (links, tables, lists).
+- The browser talks to the API directly over `fetch` (lib/api.ts) —
+  no server-side proxy, no bundled SDK; the dashboard is deployable as
+  static output against any reachable instance.

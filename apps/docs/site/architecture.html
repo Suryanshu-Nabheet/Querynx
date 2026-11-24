@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="architecture">Architecture</h2>
+<p>Querynx is a TypeScript monorepo separating <strong>capability packages</strong></p>
+<p>(pure libraries with explicit contracts) from <strong>service apps</strong></p>
+<p>(processes that compose capabilities).</p>
+<h3 id="layers">Layers</h3>
+<pre><code>┌───────────────────────────────────────────────────────────────┐
+│ apps: api (Fastify) · worker (jobs) · dashboard (Next.js) ·    │
+│       docs (static site)                                      │
+├───────────────────────────────────────────────────────────────┤
+│ integrations: MCP · Tavily-compat · LangChain · LlamaIndex    │
+├───────────────────────────────────────────────────────────────┤
+│ facades: @querynx/search (parse→retrieve→rank→cache) ·         │
+│         @querynx/retrieval (BM25+vectors) · research engine   │
+├───────────────────────────────────────────────────────────────┤
+│ capabilities: fetcher (SSRF-hardened HTTP) · extractor        │
+│ (readability+metadata) · providers (federated adapters) ·    │
+│ crawler (robots+frontier) · indexer (BM25) · embeddings ·     │
+│ ranking (signals+metrics) · parser (query understanding) ·   │
+│ queue/scheduler (durable async)                              │
+├───────────────────────────────────────────────────────────────┤
+│ platform: config · observability · security · auth ·         │
+│ database (Drizzle+Postgres) · cache · shared · types          │
+└───────────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="key-decisions">Key decisions</h3>
+<h4 id="ssrf-defense-at-the-resolver-not-just-the-url-parser">SSRF defense at the resolver, not just the URL parser</h4>
+<p>The fetcher resolves DNS through a validating lookup that rejects</p>
+<p>private/reserved/loopback addresses (v4 and v6, including mapped</p>
+<p>forms) and pins the connection to the validated result. Redirects</p>
+<p>are followed manually with re-validation of every hop. The security</p>
+<p>attack suite proves a public URL redirecting to <code>169.254.169.254</code></p>
+<p>fails before dialing. Private-network access is an operator-level</p>
+<p>environment flag, never a request parameter.</p>
+<h4 id="provider-normalized-contracts">Provider-normalized contracts</h4>
+<p>Every search provider normalizes to <code>SearchResult</code> at the adapter</p>
+<p>boundary. Downstream (merge, rank, cache, index) never sees</p>
+<p>provider-specific shapes — providers are added without touching</p>
+<p>orchestration. Provider scores are not trusted across providers;</p>
+<p>only per-provider ordering feeds the RRF merge.</p>
+<h4 id="bounded-concurrency-everywhere">Bounded concurrency everywhere</h4>
+<p>No unbounded <code>Promise.all</code> over external input. Fan-outs go through</p>
+<p><code>mapWithConcurrency</code> with explicit limits, per-provider semaphores and</p>
+<p>cooperative <code>AbortSignal</code> cancellation. Circuit breakers open per</p>
+<p>provider after repeated failures. Research adds hard budgets</p>
+<p>(queries, pages, time, content chars) and stops honestly.</p>
+<h4 id="deterministic-core-optional-intelligence">Deterministic core, optional intelligence</h4>
+<p>Fetching, caching, parsing, ranking and research synthesis are fully</p>
+<p>functional with zero model keys. The hash embedder activates hybrid</p>
+<p>retrieval offline; an OpenAI-compatible embeddings endpoint upgrades</p>
+<p>it when configured. Research synthesis is extractive by default with</p>
+<p>a pluggable model hook.</p>
+<h4 id="persistence-as-a-mirror-not-a-gate">Persistence as a mirror, not a gate</h4>
+<p>The BM25 engine serves all reads from memory for latency. When</p>
+<p>DATABASE_URL is set, writes mirror to Postgres (durable truth) and the</p>
+<p>corpus rehydrates on boot. Mirror failures never fail requests — they</p>
+<p>surface via metrics and self-heal on the next upsert through the url</p>
+<p>unique key.</p>
+<h4 id="measured-not-assumed">Measured, not assumed</h4>
+<p>Search quality is evaluated against hand-judged fixtures with</p>
+<p>CI-enforced thresholds (MRR 0.88, Recall@10 1.0, NDCG@10 0.80).</p>
+<p>Performance is benchmarked with ceilings that fail builds on</p>
+<p>regression. The numbers live in docs/BENCHMARKS.md with methodology.</p>
+<h3 id="data-flow-federated-search">Data flow: federated search</h3>
+<pre><code>raw text ─▶ parser (normalize, classify, site:/freshness operators,
+            decomposition, expansion)
+        ─▶ orchestrator (concurrent providers, breakers, RRF merge,
+            canonical + fingerprint dedupe)
+        ─▶ ranking pipeline (relevance, freshness, diversity,
+            domain preferences, corroboration)
+        ─▶ cache (stampede-protected) ─▶ response with diagnostics</code></pre>
+<h3 id="data-flow-research">Data flow: research</h3>
+<pre><code>objective ─▶ planner (initial queries) ─▶ search rounds ─▶ extract
+  pages (bounded concurrency) ─▶ evidence dedupe (fingerprints) ─▶
+  gap detection ─▶ follow-up rounds (≤2) ─▶ synthesis
+  (deterministic or model hook) ─▶ report: findings, evidence,
+  gaps, usage, termination</code></pre>
+<h3 id="services">Services</h3>
+<table>
+<thead><tr><th>Service</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td>api</td><td>HTTP surface: search/extract/index/research/jobs + SSE, Tavily-compat, auth, rate limits</td></tr>
+<tr><td>worker</td><td>Dedicated job fleet: crawl/index/research handlers, scheduler polling, metrics port</td></tr>
+<tr><td>dashboard</td><td>Browser console over the live API (static output, no server runtime)</td></tr>
+<tr><td>docs</td><td>This site — markdown built by a dependency-free generator</td></tr>
+</tbody>
+</table>
+</main>
+</div>
+</body>
+</html>

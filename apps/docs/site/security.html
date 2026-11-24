@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="security">Security</h2>
+<h3 id="threat-model">Threat model</h3>
+<p>Querynx fetches and processes untrusted web content and exposes the</p>
+<p>results through an API. Primary threats: SSRF against internal</p>
+<p>networks, resource exhaustion, credential leakage and prompt</p>
+<p>injection through retrieved content.</p>
+<h3 id="implemented-controls">Implemented controls</h3>
+<ul>
+<li><strong>SSRF</strong>: validating DNS resolver rejects loopback, RFC1918,</li>
+</ul>
+<p>  link-local (169.254.169.254), CGNAT, multicast and reserved ranges</p>
+<p>  for IPv4 and IPv6 including mapped forms; redirects re-validated</p>
+<p>  per hop; userinfo stripped from canonical URLs; bracketed IPv6</p>
+<p>  literals blocked at the URL layer. Intranet access requires the</p>
+<p>  operator-level environment flag — never a request parameter.</p>
+<ul>
+<li><strong>Resource exhaustion</strong>: byte caps before buffering, extracted</li>
+</ul>
+<p>  content length caps, bounded chunk counts, concurrency caps with</p>
+<p>  per-provider semaphores, request body limits, cache entry ceilings.</p>
+<ul>
+<li><strong>Untrusted content</strong>: linkedom parses HTML with zero script</li>
+</ul>
+<p>  execution; extracted text is inert data end to end.</p>
+<ul>
+<li><strong>Credentials</strong>: keys live only in the environment; API keys are</li>
+</ul>
+<p>  stored as SHA-256 hashes; logs and audit records pass through</p>
+<p>  recursive redaction; auth headers are redacted in request logs.</p>
+<ul>
+<li><strong>Auth</strong>: constant-time key verification, per-identity token-bucket</li>
+</ul>
+<p>  rate limits, revocation support.</p>
+<h3 id="verified-by-tests-not-claims">Verified by tests, not claims</h3>
+<p>The cross-layer attack suite (tests/security) exercises redirect</p>
+<p>chains into metadata endpoints, oversized-body bombs, credential</p>
+<p>leakage patterns and URL-parsing tricks against the running stack.</p>
+<p>It has already caught and driven fixes for two real defects</p>
+<p>(userinfo leakage in canonicalization; IPv6-literal bypass).</p>
+<h3 id="reporting">Reporting</h3>
+<p>Open a private security advisory at</p>
+<p>https://github.com/Suryanshu-Nabheet/Querynx/security/advisories.</p>
+<p>Please include reproduction steps and the affected commit. Do not</p>
+<p>open public issues for exploitable findings.</p>
+</main>
+</div>
+</body>
+</html>

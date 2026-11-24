@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API — Querynx Docs</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+<nav class="sidebar">
+  <a class="brand" href="/">Querynx</a>
+  <a href="/api.html">API</a>
+  <a href="/architecture.html">Architecture</a>
+  <a href="/benchmarks.html">Benchmarks</a>
+  <a href="/integrations.html">Integrations</a>
+  <a href="/quickstart.html">Quickstart</a>
+  <a href="/security.html">Security</a>
+  <a href="/self-hosting.html">Self Hosting</a>
+</nav>
+<main>
+<h2 id="api-reference">API Reference</h2>
+<p>Base URL: your instance (default <code>http://127.0.0.1:3001</code>). All request</p>
+<p>and response bodies are JSON. The machine-readable OpenAPI 3.1</p>
+<p>specification lives at <code>docs/openapi.json</code> and is contract-tested on</p>
+<p>every commit.</p>
+<h3 id="authentication">Authentication</h3>
+<p>When <code>QUERYNX_API_KEYS</code> is set on the server, every <code>/v1/*</code> request</p>
+<p>needs a key in the <code>x-api-key</code> header (or <code>Authorization: Bearer</code>).</p>
+<p>With no keys configured the API runs open for local development.</p>
+<pre><code class="lang-bash">curl -H 'x-api-key: YOUR_KEY' http://127.0.0.1:3001/v1/providers</code></pre>
+<h3 id="search">Search</h3>
+<h4 id="post-v1-search">POST /v1/search</h4>
+<p>Federated search across all configured providers, merged with</p>
+<p>Reciprocal Rank Fusion, deduplicated by canonical URL and content</p>
+<p>fingerprint.</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>query</td><td>string</td><td>—</td><td>required</td></tr>
+<tr><td>maxResults</td><td>int</td><td>10</td><td>1-50</td></tr>
+<tr><td>includeDomains</td><td>string[]</td><td>—</td><td>restrict to these domains</td></tr>
+<tr><td>excludeDomains</td><td>string[]</td><td>—</td><td>drop these domains</td></tr>
+<tr><td>language / region</td><td>string</td><td>—</td><td>ISO codes</td></tr>
+<tr><td>freshness</td><td>enum</td><td>any</td><td>day, week, month, year</td></tr>
+<tr><td>category</td><td>enum</td><td>web</td><td>web, news, academic, code, docs</td></tr>
+<tr><td>providers</td><td>string[]</td><td>all</td><td>restrict providers</td></tr>
+</tbody>
+</table>
+<p>Response: <code>{ results, query, generatedAt, diagnostics, requestId }</code> —</p>
+<p><code>diagnostics</code> reports per-provider attempts, success counts and</p>
+<p>duplicates removed. Unknown body properties are rejected with 400.</p>
+<h4 id="post-v1-search-batch">POST /v1/search/batch</h4>
+<p>Up to 20 queries in one request. Returns per-query responses with</p>
+<p>individual ok/error envelopes.</p>
+<h4 id="post-v1-search-semantic">POST /v1/search/semantic</h4>
+<p>BM25 search over your local indexed corpus (see /v1/index). Returns</p>
+<p>matched terms per hit.</p>
+<h4 id="post-v1-search-stream">POST /v1/search/stream</h4>
+<p>SSE stream: <code>start</code>, <code>partial</code> (per provider, ahead of the merge),</p>
+<p><code>results</code>, <code>done</code>. Client disconnect aborts in-flight provider work.</p>
+<h3 id="extraction">Extraction</h3>
+<h4 id="post-v1-extract">POST /v1/extract</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>urls</td><td>string[]</td><td>1-10 absolute http(s) URLs</td></tr>
+<tr><td>format</td><td>enum</td><td>markdown (default), html, text</td></tr>
+<tr><td>includeLinks / includeTables / includeMetadata</td><td>bool</td><td>optional extras</td></tr>
+<tr><td>maxContentLength</td><td>int</td><td>cap in characters</td></tr>
+</tbody>
+</table>
+<p>Returns <code>{ results }</code> with per-URL ok/error. SSRF-protected: private</p>
+<p>networks, loopback and cloud metadata endpoints are rejected with 400.</p>
+<h3 id="index-local-corpus">Index (local corpus)</h3>
+<h4 id="post-v1-index">POST /v1/index</h4>
+<p>Ingest by fetching a URL, or inline content. Documents live in named</p>
+<p>collections and become searchable via /v1/search/semantic. When</p>
+<p>DATABASE_URL is configured, ingests are mirrored to Postgres and the</p>
+<p>corpus rehydrates on restart.</p>
+<h4 id="get-v1-index-stats">GET /v1/index/stats</h4>
+<p>Document, collection, term and character counts plus the persistence</p>
+<p>mode.</p>
+<h3 id="research">Research</h3>
+<h4 id="post-v1-research">POST /v1/research</h4>
+<p>Bounded autonomous research: plans queries, searches, extracts pages,</p>
+<p>deduplicates evidence and synthesizes findings — deterministically</p>
+<p>(no LLM required).</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>objective</td><td>string</td><td>the research question</td></tr>
+<tr><td>mode</td><td>enum</td><td>fast, standard, advanced, deep, academic, technical, documentation</td></tr>
+<tr><td>maxQueries / maxPages / timeMs</td><td>int</td><td>override the mode budgets</td></tr>
+</tbody>
+</table>
+<p>The report contains <code>findings</code>, <code>evidence</code> (with source URLs and</p>
+<p>relevance), <code>gaps</code> (unresolved questions), <code>usage</code> and an honest</p>
+<p><code>termination</code> reason (coverage-reached, budget-exhausted, no-results,</p>
+<p>cancelled).</p>
+<h4 id="post-v1-research-stream">POST /v1/research/stream</h4>
+<p>SSE: the full research lifecycle — query-started, query-completed,</p>
+<p>page-extracted, gap-detected — ending with <code>completed</code> carrying the</p>
+<p>report.</p>
+<h3 id="jobs">Jobs</h3>
+<p>Async execution over the durable queue.</p>
+<table>
+<thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>POST /v1/jobs</td><td>Submit crawl/index/research (202 + poll handle)</td></tr>
+<tr><td>GET /v1/jobs/:id</td><td>Poll status, attempts, result</td></tr>
+<tr><td>DELETE /v1/jobs/:id</td><td>Cancel pending/running jobs</td></tr>
+<tr><td>GET /v1/jobs</td><td>Queue stats + recent dead letters</td></tr>
+</tbody>
+</table>
+<h3 id="system">System</h3>
+<table>
+<thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>GET /health</td><td>Liveness</td></tr>
+<tr><td>GET /ready</td><td>Readiness + provider/cache state</td></tr>
+<tr><td>GET /metrics</td><td>Prometheus text format</td></tr>
+<tr><td>GET /v1/providers</td><td>Circuit state, success rate, P50 per provider</td></tr>
+</tbody>
+</table>
+<h3 id="tavily-compatible-surface">Tavily-compatible surface</h3>
+<p><code>POST /search</code> accepts Tavily's request shape (<code>api_key</code> in body or the</p>
+<p>Authorization header, <code>query</code>, <code>search_depth</code>, <code>topic</code>, <code>max_results</code>,</p>
+<p><code>include_answer</code>, <code>time_range</code>) and returns Tavily's response envelope.</p>
+<p>Point existing Tavily clients at your instance by changing the base URL.</p>
+<h3 id="errors">Errors</h3>
+<p>Every error uses one envelope:</p>
+<pre><code class="lang-json">{ &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_ERROR&quot;, &quot;message&quot;: &quot;...&quot; },
+  &quot;requestId&quot;: &quot;uuid&quot; }</code></pre>
+<p>Codes: VALIDATION_ERROR (400), UNAUTHORIZED (401), RATE_LIMITED (429,</p>
+<p>with retry-after), UPSTREAM_ERROR/PROVIDER_ERROR (502), CANCELLED</p>
+<p>(499), INTERNAL_ERROR (500, details logged server-side with the</p>
+<p>request id, never leaked).</p>
+</main>
+</div>
+</body>
+</html>
