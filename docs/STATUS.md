@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-24 (after platform expansion — 30 package milestone)
+Last updated: 2026-11-24 (after end-to-end hardening phase)
 
 ## Validated and working
 
@@ -28,7 +28,7 @@ Last updated: 2026-11-24 (after platform expansion — 30 package milestone)
 | `packages/cli` | Complete (search/extract/research/status/providers) | 10 passing |
 | `apps/api` | 15 endpoints incl. SSE + Tavily-compat | 30 passing |
 | `apps/worker` | Job service with crawl/index/research handlers | 4 passing |
-| `apps/dashboard` | Next.js console — 6 pages, production build verified | typecheck gate |
+| `apps/dashboard` | Console — 9 pages incl. crawl mgmt, usage, SSE research | build + typecheck gate |
 | `sdk/typescript` | Complete (retries, typed errors) | 5 passing |
 | `sdk/python` | Complete (sync + async, 8 tests) | 8 passing |
 | `integrations/mcp` | Complete (4 tools, stdio transport) | 6 passing |
@@ -62,22 +62,30 @@ Both fixed; suite now guards against regression.
   decomposition → ranking → cache in one entrypoint.
 - Production compose + deployment guide; release-check gate script;
   live API smoke test.
+- DB-backed key auth (hashed Postgres keys alongside env keys) and
+  usage accounting with GET /v1/usage (P95 per route).
+- Dashboard: crawl management, usage analytics, SSE-streamed research
+  with live progress and cooperative Stop; 9 pages serving 200s
+  against the running API.
+- Shared cross-layer fixtures (robots/html/sitemap/attacks) with
+  integrity tests.
 
 ## Known limitations
 
-- Postgres persistence covers documents; jobs/api-keys/usage tables
-  exist in the schema but their stores are not yet wired into the API
-  request path.
-- No SSE for the dashboard research view (API streams; page polls).
 - Embeddings default to deterministic hash vectors; the OpenAI-
   compatible embedder activates only when configured.
 - Postgres rehydration loads the corpus into memory on boot; very
   large corpora will need the SQL read path (fullTextSearch) exposed.
+- The worker service and API share handler contracts but the Postgres
+  jobs-table bridge between them (worker claiming API-submitted jobs)
+  is not yet wired: API-submitted jobs run on the API's in-process
+  queue today.
 
 ## Next tasks (priority order)
 
-1. Wire api-keys/usage stores into the request path.
-2. Dashboard: SSE research streaming, crawl management page.
-3. Ranking evaluation corpus expansion (more judgments).
-4. Multi-worker e2e: api + worker sharing the Postgres jobs table
-   against the production compose.
+1. Multi-worker jobs bridge: API enqueue -> Postgres jobs table ->
+   worker SKIP LOCKED claim (production compose topology).
+2. Ranking evaluation corpus expansion (more judgments).
+3. Webhook support for completed research jobs.
+4. Browser rendering as automatic fallback in the extract path when
+   HTTP extraction returns insufficient content.
