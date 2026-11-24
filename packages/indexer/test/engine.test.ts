@@ -204,3 +204,33 @@ describe("MemorySearchEngine", () => {
     expect(recent[0]!.document.url).toContain("redis.io");
   });
 });
+
+describe("relevance gating (live-eval regressions)", () => {
+  it("does not surface single-token coincidences for nonsense queries", () => {
+    const engine = new MemorySearchEngine();
+    // 'error' is a common token in these docs; a 4-term query matching
+    // ONLY 'error' must not surface (the 1/3-coverage gate blocks it).
+    engine.index({
+      url: "https://docs.example/http-errors",
+      title: "HTTP Error Semantics",
+      content: "error handling in status codes covers error conditions and retries",
+      collection: "g",
+      fingerprint: "g1",
+    });
+    const hits = engine.search({ query: "quantum computing error correction", limit: 5 });
+    expect(hits).toHaveLength(0);
+  });
+
+  it("keeps genuine single-concept matches", () => {
+    const engine = new MemorySearchEngine();
+    engine.index({
+      url: "https://docs.example/pooling",
+      title: "Connection Pooling",
+      content: "connection pooling reduces overhead for databases",
+      collection: "g",
+      fingerprint: "g2",
+    });
+    const hits = engine.search({ query: "pooling", limit: 5 });
+    expect(hits).toHaveLength(1);
+  });
+});

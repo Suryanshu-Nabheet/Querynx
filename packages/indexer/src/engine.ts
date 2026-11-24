@@ -165,7 +165,21 @@ export class MemorySearchEngine {
       hit.score = max > 0 ? hit.bm25Score / max : 0;
     }
 
-    return hits.sort((a, b) => b.bm25Score - a.bm25Score).slice(0, query.limit);
+    // Relevance gating, from the live 100-query evaluation: absolute
+    // BM25 scores do not separate single-token coincidences from real
+    // matches (a lone 'error' match scored 1.6 in a 7-doc corpus).
+    // Two gates: (1) a minimum BM25 floor for negligible matches,
+    // (2) query-coverage — a hit must match at least a third of the
+    // query's distinct terms so one shared common word can never
+    // surface an unrelated document.
+    const MIN_BM25 = 0.35;
+    const distinctTerms = new Set(terms).size;
+    const minCoverage = Math.max(1, Math.ceil(distinctTerms / 3));
+    return hits
+      .sort((a, b) => b.bm25Score - a.bm25Score)
+      .filter((h) => h.bm25Score >= MIN_BM25)
+      .filter((h) => h.matchedTerms.length >= minCoverage)
+      .slice(0, query.limit);
   }
 
   /** Corpus statistics. */
