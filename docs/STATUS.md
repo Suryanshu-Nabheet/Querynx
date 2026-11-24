@@ -50,14 +50,25 @@ The cross-layer security suite caught and led to fixes for:
 
 Both fixed; suite now guards against regression.
 
+## Recently closed
+
+- Jobs API over the durable queue (submit/poll/cancel, dead letters).
+- Playwright browser rendering: isolated Chromium with in-context
+  private-network blocking (operator opt-in via QUERYNX_BROWSER_PATH).
+- PDF extraction with input/page/char caps.
+- Documentation site (apps/docs): 8 pages, dependency-free builder,
+  link-integrity tests.
+- Search facade (@querynx/search): parse → federated retrieval with
+  decomposition → ranking → cache in one entrypoint.
+- Production compose + deployment guide; release-check gate script;
+  live API smoke test.
+
 ## Known limitations
 
 - Postgres persistence covers documents; jobs/api-keys/usage tables
   exist in the schema but their stores are not yet wired into the API
   request path.
 - No SSE for the dashboard research view (API streams; page polls).
-- Browser rendering (Playwright) not yet implemented.
-- PDF extraction not yet implemented.
 - Embeddings default to deterministic hash vectors; the OpenAI-
   compatible embedder activates only when configured.
 - Postgres rehydration loads the corpus into memory on boot; very
@@ -65,9 +76,8 @@ Both fixed; suite now guards against regression.
 
 ## Next tasks (priority order)
 
-1. Jobs API: /v1/jobs endpoints (submit crawl/index/research, poll
-   status, cancel) over the queue.
-2. Playwright browser rendering path for JS-heavy extraction.
-3. PDF extraction.
-4. Wire api-keys/usage stores into the request path.
-5. Documentation site (apps/docs).
+1. Wire api-keys/usage stores into the request path.
+2. Dashboard: SSE research streaming, crawl management page.
+3. Ranking evaluation corpus expansion (more judgments).
+4. Multi-worker e2e: api + worker sharing the Postgres jobs table
+   against the production compose.
