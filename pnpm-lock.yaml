@@ -907,6 +907,9 @@ importers:
       '@querynx/auth':
         specifier: workspace:*
         version: link:../packages/auth
+      '@querynx/crawler':
+        specifier: workspace:*
+        version: link:../packages/crawler
       '@querynx/extractor':
         specifier: workspace:*
         version: link:../packages/extractor

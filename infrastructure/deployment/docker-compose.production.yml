@@ -1,0 +1,92 @@
+# Production-oriented Querynx stack.
+#
+# Differences from the dev compose (infrastructure/docker/):
+#   - Postgres with a volume for durable corpus + jobs
+#   - Dedicated worker service consuming the shared jobs table
+#   - No host ports for internal services (compose network only)
+#   - Restart policies and resource limits
+#
+# Usage:
+#   SEARXNG_SECRET=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
+#     docker compose -f infrastructure/deployment/docker-compose.production.yml up -d
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=querynx
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      - POSTGRES_DB=querynx
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querynx -d querynx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Internal only: no host ports.
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET:?set SEARXNG_SECRET}
+    volumes:
+      - searxng:/etc/searxng
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - DATABASE_URL=postgres://querynx:${POSTGRES_PASSWORD}@postgres:5432/querynx
+      - QUERYNX_API_KEYS=${QUERYNX_API_KEYS:?set QUERYNX_API_KEYS}
+      - LOG_LEVEL=${LOG_LEVEL:-warn}
+      - PRODUCER_CONCURRENCY=${PRODUCER_CONCURRENCY:-4}
+    ports:
+      - "127.0.0.1:3001:3001"   # expose via your TLS proxy
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 1g }
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+    command: ["pnpm", "--filter", "@querynx/worker", "exec", "tsx", "src/main.ts"]
+    environment:
+      - PORT=3500
+      - HOST=0.0.0.0
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - DATABASE_URL=postgres://querynx:${POSTGRES_PASSWORD}@postgres:5432/querynx
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+      - LOG_LEVEL=${LOG_LEVEL:-warn}
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 1g }
+
+volumes:
+  pgdata:
+  searxng:
