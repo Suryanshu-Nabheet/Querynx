@@ -280,6 +280,37 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.5)(supports-color@7.2.0)(tsx@4.23.15)
 
+  benchmarks:
+    dependencies:
+      '@querynx/cache':
+        specifier: workspace:*
+        version: link:../packages/cache
+      '@querynx/extractor':
+        specifier: workspace:*
+        version: link:../packages/extractor
+      '@querynx/indexer':
+        specifier: workspace:*
+        version: link:../packages/indexer
+      '@querynx/providers':
+        specifier: workspace:*
+        version: link:../packages/providers
+      '@querynx/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
+      '@querynx/types':
+        specifier: workspace:*
+        version: link:../packages/types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(supports-color@7.2.0)(tsx@4.23.15)
+
   integrations/langchain:
     dependencies:
       '@langchain/core':

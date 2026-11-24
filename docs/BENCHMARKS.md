@@ -26,11 +26,37 @@ Interpretation: every judged document is retrieved (recall 1.0) and the
 correct document is usually ranked first (MRR 0.88). Precision@10 is
 low by construction — 10 retrieved for ~1 relevant each — not a defect.
 
+## Performance — core hot paths
+
+- **Method**: `benchmarks/bench/core.perf.test.ts` (runs in CI; each
+  ceiling asserts against regression).
+- **Machine**: dev laptop (Apple Silicon), Node 26, single process.
+  Numbers are directional baselines, not certified SLOs.
+
+**Measured (2026-11-24):**
+
+| Benchmark | Result |
+|---|---|
+| BM25 index 500 docs (60 sentences each) | P50 49ms (~10k docs/s single-threaded) |
+| BM25 query over 2000-doc corpus | P50 0.66ms / P95 1.61ms |
+| Fingerprint 100-sentence text | P50 0.45ms |
+| Canonicalize 100 URLs | P50 0.97ms |
+| Cache stampede: 100 concurrent identical gets | 1 compute, 11.5ms total |
+| Extract realistic page (150 paragraphs) | P50 4.2ms |
+| Federated merge, 3 providers × 20 results | P50 4.57ms |
+| Bounded concurrency: 200 tasks @ 16-wide | peak exactly 16, 29ms |
+
+Interpretation: retrieval and merge paths are well inside interactive
+latency budgets; the cache prevents thundering herds exactly as
+designed (100 → 1 upstream call).
+
 ## Methodology notes
 
 - Judgments are small and hand-built; treat these numbers as a
   regression baseline, not an absolute quality claim.
 - Each retrieval-stack change must re-run the evaluation; CI enforces
   the thresholds (`mrr >= 0.6`, `recall@10 == 1`, `ndcg@10 >= 0.5`).
-- Latency and throughput benchmarks land with the API performance
-  suite (planned); nothing is claimed before it is measured.
+- Perf ceilings are deliberately generous (5–10× observed) to catch
+  regressions without flaking on CI runner variance.
+- No comparison against competing implementations is claimed anywhere;
+  numbers exist to keep Querynx honest about itself.
