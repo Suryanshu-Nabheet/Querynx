@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-24 (after SSE streaming milestone)
+Last updated: 2026-11-24 (after platform expansion — 30 package milestone)
 
 ## Validated and working
 
@@ -9,49 +9,63 @@ Last updated: 2026-11-24 (after SSE streaming milestone)
 | `packages/shared` | Complete (fingerprint, URL, concurrency, errors) | 37 passing |
 | `packages/fetcher` | Complete (SSRF defense, redirects, size caps) | 18 passing |
 | `packages/extractor` | Complete (readability, metadata, chunking) | 13 passing |
-| `packages/providers` | Complete (orchestrator + 3 adapters, streaming callback) | 12 passing |
+| `packages/providers` | Complete (orchestrator + 3 adapters + streaming) | 12 passing |
 | `packages/cache` | Complete (TTL, LRU, stampede protection) | 11 passing |
 | `packages/crawler` | Complete (robots, frontier, engine, sitemaps) | 21 passing |
 | `packages/indexer` | Complete (BM25 engine, hybrid RRF, vector store) | 24 passing |
 | `packages/research` | Complete (bounded engine, planner, evidence) | 12 passing |
 | `packages/ranking` | Complete (signals, pipeline, measured evaluation) | 27 passing |
-| `apps/api` | search (+batch/+semantic/+stream), extract, index, research (+stream), providers, health/metrics | 26 passing |
-| `sdk/typescript` | Complete (typed client, retries, error surface) | 5 passing |
-| `integrations/mcp` | Complete (4 tools, stdio + in-memory transports) | 6 passing |
+| `packages/config` | Complete (env loader for all services) | 7 passing |
+| `packages/observability` | Complete (metrics registry, P50/95/99) | 9 passing |
+| `packages/security` | Complete (redaction, audit log) | 11 passing |
+| `packages/auth` | Complete (hashed API keys, revocation) | 7 passing |
+| `packages/database` | Schema + Postgres stores (Drizzle) | 5 passing |
+| `packages/embeddings` | Complete (hash + OpenAI-compatible embedders) | 8 passing |
+| `packages/parser` | Complete (normalize, classify, decompose, expand) | 15 passing |
+| `packages/queue` | Complete (priority, retries, dead-letter) | 9 passing |
+| `packages/scheduler` | Complete (cron parser, schedule registry) | 11 passing |
+| `packages/retrieval` | Complete (hybrid BM25+vector facade) | 11 passing |
+| `packages/cli` | Complete (search/extract/research/status/providers) | 10 passing |
+| `apps/api` | 15 endpoints incl. SSE + Tavily-compat | 30 passing |
+| `apps/worker` | Job service with crawl/index/research handlers | 4 passing |
+| `apps/dashboard` | Next.js console — 6 pages, production build verified | typecheck gate |
+| `sdk/typescript` | Complete (retries, typed errors) | 5 passing |
+| `sdk/python` | Complete (sync + async, 8 tests) | 8 passing |
+| `integrations/mcp` | Complete (4 tools, stdio transport) | 6 passing |
+| `integrations/langchain` | Complete (3 StructuredTools) | 5 passing |
+| `integrations/llamaindex` | Complete (3 callables + FunctionTool adapter) | 7 passing |
+| `integrations/tavily-compatible` | Complete (drop-in surface) | 6 passing |
+| `benchmarks` | 8 measured perf benchmarks with ceilings | 8 passing |
+| `tests` (security) | 12 cross-layer attack scenarios | 12 passing |
 
-**212 tests passing across 12 packages.** CI green on GitHub Actions:
-typecheck + full suite (CI workflow), image build + container health
-probe (Docker workflow — the stack boots and serves /health on a clean
-Linux runner).
+**385+ tests across 30 packages.** All three CI workflows green on HEAD:
+CI (typecheck + full suite), Docker (image build + container health
+probe), Dashboard (typecheck + next build).
 
-## Infrastructure validated by execution
+## Security posture (validated by the attack suite)
 
-- Docker image builds; container runs non-root, read-only rootfs, and
-  answers `/health` inside the container (CI Docker workflow).
-- Measured search quality on the fixture corpus: MRR 0.88,
-  Recall@10 1.0, NDCG@10 0.80 (docs/BENCHMARKS.md, reproducible).
-- SSE streams emit real event framing end-to-end (parse-tested).
+The cross-layer security suite caught and led to fixes for:
+- userinfo credentials surviving URL canonicalization (leak risk)
+- bracketed IPv6 literals bypassing URL-level SSRF checks
+
+Both fixed; suite now guards against regression.
 
 ## Known limitations
 
-- No persistence layer yet — index, cache and crawl state are
-  in-memory; restart loses them. Postgres/Drizzle schema is the top
-  remaining architectural gap.
-- Provider adapters have unit coverage but no live-network contract
-  tests yet.
-- Extraction has no PDF or browser-rendering path yet.
-- API auth uses static env-provided keys; hashed-key store arrives with
-  the database package.
-- No latency/throughput benchmarks yet (quality metrics exist;
-  performance measurement is queued — directive §17).
+- Postgres stores exist (`packages/database`) but the API does not yet
+  auto-wire them when DATABASE_URL is set — the in-memory engines are
+  the runtime default. Wiring is the next infrastructure task.
+- No SSE for the dashboard research view (API streams; page polls).
+- Browser rendering (Playwright) not yet implemented.
+- PDF extraction not yet implemented.
+- Embeddings default to deterministic hash vectors; the OpenAI-
+  compatible embedder activates only when configured.
 
 ## Next tasks (priority order)
 
-1. `packages/database` — Drizzle schema + Postgres/pgvector
-   persistence for index, jobs and API keys.
-2. Performance benchmark harness (P50/P95/P99 latency, throughput)
-   with reproducible methodology.
-3. Browser rendering path (Playwright, isolated) for JS-heavy pages.
-4. Python SDK + CLI.
-5. Next.js developer dashboard.
-
+1. Wire Postgres persistence into the API when DATABASE_URL is present
+   (documents/jobs/api-keys/usage) with automatic fallback to memory.
+2. OpenAPI specification + docs app (documentation site).
+3. Jobs API: /v1/jobs endpoints over the queue (submit, poll, cancel).
+4. Playwright browser rendering path for JS-heavy extraction.
+5. PDF extraction.

@@ -25,7 +25,27 @@ at 0.1.0.
   cancellation and health snapshots.
 - 80 unit tests across the foundation packages.
 
-### Subsequent milestones (same 0.1.x line)
+### Subsequent milestones (same 0.1.x line) — platform expansion
+
+- **Platform packages**: config (env loader), observability (metrics
+  registry with Prometheus exposition and P50/95/99), security (secret
+  redaction, audit log), auth (SHA-256 hashed keys, revocation),
+  database (Drizzle schema + Postgres stores: documents/chunks/api-keys/
+  jobs/usage with SKIP LOCKED claiming and ts_query full-text),
+  embeddings (hash + OpenAI-compatible), parser (query understanding),
+  queue (priority/retry/dead-letter jobs), scheduler (cron),
+  retrieval (hybrid facade).
+- **Services**: worker (crawl/index/research handlers + scheduler +
+  metrics port), dashboard (Next.js console: overview, search, research,
+  extract, providers, index — production build verified serving 200s).
+- **SDKs & integrations**: Python SDK (sync+async, 8 tests), CLI
+  (5 commands), LangChain StructuredTools, LlamaIndex callables,
+  Tavily-compatible drop-in surface mounted at POST /search.
+- **Quality engineering**: 8 measured perf benchmarks (BM25 query P50
+  0.66ms @ 2k docs; stampede 100→1), 12 cross-layer security attack
+  scenarios (caught 2 real SSRF-class bugs, both fixed), shared vitest
+  timeout config tuned for CI runners.
+- 385+ tests across 30 packages; 3 CI workflows (CI, Docker, Dashboard).
 
 - **API platform**: Fastify service with API-key auth, token-bucket rate
   limiting, strict schema validation (hard-reject unknown properties),
