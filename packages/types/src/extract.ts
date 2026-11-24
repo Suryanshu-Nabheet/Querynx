@@ -3,7 +3,7 @@
  */
 
 /** Output formats the extraction pipeline can produce. */
-export type ExtractFormat = 'markdown' | 'html' | 'text';
+export type ExtractFormat = "markdown" | "html" | "text";
 
 /** A request to extract structured content from one or more URLs. */
 export interface ExtractRequest {

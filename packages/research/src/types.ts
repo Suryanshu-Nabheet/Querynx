@@ -2,17 +2,17 @@
  * Research domain types: objectives, budgets, evidence and reports.
  */
 
-import type { SearchResult } from '@querynx/types';
+import type { SearchResult } from "@querynx/types";
 
 /** Research depth modes. */
 export type ResearchMode =
-  | 'fast'
-  | 'standard'
-  | 'advanced'
-  | 'deep'
-  | 'academic'
-  | 'technical'
-  | 'documentation';
+  | "fast"
+  | "standard"
+  | "advanced"
+  | "deep"
+  | "academic"
+  | "technical"
+  | "documentation";
 
 /** Hard budgets preventing unbounded research loops. */
 export interface ResearchBudget {
@@ -29,12 +29,42 @@ export interface ResearchBudget {
 /** Default budgets per mode. Tighter modes terminate sooner. */
 export const MODE_BUDGETS: Record<ResearchMode, ResearchBudget> = {
   fast: { maxQueries: 2, maxPages: 3, timeMs: 30_000, maxContentChars: 30_000 },
-  standard: { maxQueries: 4, maxPages: 6, timeMs: 60_000, maxContentChars: 60_000 },
-  advanced: { maxQueries: 6, maxPages: 10, timeMs: 120_000, maxContentChars: 120_000 },
-  deep: { maxQueries: 10, maxPages: 20, timeMs: 300_000, maxContentChars: 300_000 },
-  academic: { maxQueries: 8, maxPages: 14, timeMs: 180_000, maxContentChars: 200_000 },
-  technical: { maxQueries: 6, maxPages: 12, timeMs: 150_000, maxContentChars: 180_000 },
-  documentation: { maxQueries: 4, maxPages: 10, timeMs: 90_000, maxContentChars: 150_000 },
+  standard: {
+    maxQueries: 4,
+    maxPages: 6,
+    timeMs: 60_000,
+    maxContentChars: 60_000,
+  },
+  advanced: {
+    maxQueries: 6,
+    maxPages: 10,
+    timeMs: 120_000,
+    maxContentChars: 120_000,
+  },
+  deep: {
+    maxQueries: 10,
+    maxPages: 20,
+    timeMs: 300_000,
+    maxContentChars: 300_000,
+  },
+  academic: {
+    maxQueries: 8,
+    maxPages: 14,
+    timeMs: 180_000,
+    maxContentChars: 200_000,
+  },
+  technical: {
+    maxQueries: 6,
+    maxPages: 12,
+    timeMs: 150_000,
+    maxContentChars: 180_000,
+  },
+  documentation: {
+    maxQueries: 4,
+    maxPages: 10,
+    timeMs: 90_000,
+    maxContentChars: 150_000,
+  },
 };
 
 /** A single issued research query with its rationale. */
@@ -42,7 +72,7 @@ export interface ResearchStep {
   /** Query text issued to the search layer. */
   query: string;
   /** Why this query was issued (initial, gap-followup, contradiction). */
-  reason: 'initial' | 'gap-followup' | 'contradiction-probe';
+  reason: "initial" | "gap-followup" | "contradiction-probe";
   /** Results count contributed. */
   resultCount: number;
   /** Wall-clock duration. */
@@ -95,22 +125,32 @@ export interface ResearchReport {
     contentChars: number;
   };
   /** Why the research terminated. */
-  termination: 'budget-exhausted' | 'coverage-reached' | 'no-results' | 'cancelled';
+  termination:
+    "budget-exhausted" | "coverage-reached" | "no-results" | "cancelled";
   /** Report timestamp. */
   completedAt: string;
 }
 
 /** Streaming events emitted during research execution. */
 export type ResearchEvent =
-  | { type: 'query-started'; query: string; reason: ResearchStep['reason'] }
-  | { type: 'query-completed'; query: string; resultCount: number; durationMs: number }
-  | { type: 'page-extracted'; url: string; title: string; contentChars: number }
-  | { type: 'gap-detected'; question: string }
-  | { type: 'completed'; report: ResearchReport };
+  | { type: "query-started"; query: string; reason: ResearchStep["reason"] }
+  | {
+      type: "query-completed";
+      query: string;
+      resultCount: number;
+      durationMs: number;
+    }
+  | { type: "page-extracted"; url: string; title: string; contentChars: number }
+  | { type: "gap-detected"; question: string }
+  | { type: "completed"; report: ResearchReport };
 
 /** The contract research uses to search and to synthesize. */
 export interface SearchFn {
-  (query: string, maxResults: number, signal?: AbortSignal): Promise<SearchResult[]>;
+  (
+    query: string,
+    maxResults: number,
+    signal?: AbortSignal,
+  ): Promise<SearchResult[]>;
 }
 
 /**

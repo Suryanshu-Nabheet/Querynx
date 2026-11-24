@@ -6,19 +6,20 @@ documentation and open-source code; nothing proprietary is reproduced.
 
 ## Competitive landscape (2026-11)
 
-| Capability | Tavily | Exa | Firecrawl | SearXNG | **Querynx** |
-|---|---|---|---|---|---|
-| Federated multi-provider search | proprietary | proprietary (own index) | — | yes (engines) | ✅ RRF merge + dedupe |
-| Self-hostable | no | no | no | yes (search only) | ✅ full stack, keyless default |
-| Content extraction | basic | basic | strong (crawler-grade) | — | ✅ Readability + metadata |
-| Crawling | limited | — | strong | — | ✅ robots-compliant, resumable |
-| Native corpus + retrieval | — | own index | — | — | ✅ BM25 + hybrid RRF |
-| Bounded research orchestration | API "research" | — | — | — | ✅ budgets, evidence, gaps |
-| MCP server | yes | yes | yes | — | ✅ 4 tools, tested over protocol |
-| Quality metrics published | no | no | no | n/a | ✅ MRR/NDCG measured in-repo |
-| Open license | closed | closed | AGPL | AGPL | ✅ AGPL |
+| Capability                      | Tavily         | Exa                     | Firecrawl              | SearXNG           | **Querynx**                      |
+| ------------------------------- | -------------- | ----------------------- | ---------------------- | ----------------- | -------------------------------- |
+| Federated multi-provider search | proprietary    | proprietary (own index) | —                      | yes (engines)     | ✅ RRF merge + dedupe            |
+| Self-hostable                   | no             | no                      | no                     | yes (search only) | ✅ full stack, keyless default   |
+| Content extraction              | basic          | basic                   | strong (crawler-grade) | —                 | ✅ Readability + metadata        |
+| Crawling                        | limited        | —                       | strong                 | —                 | ✅ robots-compliant, resumable   |
+| Native corpus + retrieval       | —              | own index               | —                      | —                 | ✅ BM25 + hybrid RRF             |
+| Bounded research orchestration  | API "research" | —                       | —                      | —                 | ✅ budgets, evidence, gaps       |
+| MCP server                      | yes            | yes                     | yes                    | —                 | ✅ 4 tools, tested over protocol |
+| Quality metrics published       | no             | no                      | no                     | n/a               | ✅ MRR/NDCG measured in-repo     |
+| Open license                    | closed         | closed                  | AGPL                   | AGPL              | ✅ AGPL                          |
 
 ### Where Querynx is ahead
+
 - **Fully keyless self-hosting** with measured quality gates.
 - **Honest degradation**: providers report health/circuit state; research
   reports gaps and termination reasons rather than false confidence.
@@ -26,6 +27,7 @@ documentation and open-source code; nothing proprietary is reproduced.
   the model is a pluggable upgrade, not a dependency.
 
 ### Where competitors are ahead (honest gaps)
+
 - **Exa's neural index** embeds billions of pages; Querynx's native corpus
   starts empty and grows by crawl/ingest. Vector search is wired but has
   no default embedding model yet.

@@ -6,29 +6,29 @@
  * consistent error responses.
  */
 
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from "fastify";
 import {
   SearchOrchestrator,
   SearxngProvider,
   BraveProvider,
   TavilyProvider,
-} from '@querynx/providers';
-import { TTLCache, searchCacheKey } from '@querynx/cache';
-import { fetchUrl } from '@querynx/fetcher';
-import { extractDocument } from '@querynx/extractor';
+} from "@querynx/providers";
+import { TTLCache, searchCacheKey } from "@querynx/cache";
+import { fetchUrl } from "@querynx/fetcher";
+import { extractDocument } from "@querynx/extractor";
 import {
   MemorySearchEngine,
   fromExtractedDocument,
   type RetrievalHit,
-} from '@querynx/indexer';
-import { connectStores } from '@querynx/database';
-import { hashApiKey } from '@querynx/auth';
+} from "@querynx/indexer";
+import { connectStores } from "@querynx/database";
+import { hashApiKey } from "@querynx/auth";
 import {
   ResearchEngine,
   MODE_BUDGETS,
   type ResearchEvent,
-} from '@querynx/research';
-import { executeTavilySearch } from '@querynx/tavily-compat';
+} from "@querynx/research";
+import { executeTavilySearch } from "@querynx/tavily-compat";
 import {
   TokenBucketRateLimiter,
   toSafeError,
@@ -36,15 +36,15 @@ import {
   ValidationError,
   isSafeOutboundUrl,
   canonicalizeUrl,
-} from '@querynx/shared';
-import type { SearchQuery, SearchResponse } from '@querynx/types';
-import type { ApiConfig } from './config.js';
-import { PersistentIndex } from './persistence.js';
-import { registerApiJobHandlers, serializeJob } from './jobs.js';
-import { JobBridge, makeDelegatingStore } from './job-bridge.js';
-import { deliverWebhook, validWebhookTarget } from './webhooks.js';
-import { JobQueue } from '@querynx/queue';
-import { randomUUID } from 'node:crypto';
+} from "@querynx/shared";
+import type { SearchQuery, SearchResponse } from "@querynx/types";
+import type { ApiConfig } from "./config.js";
+import { PersistentIndex } from "./persistence.js";
+import { registerApiJobHandlers, serializeJob } from "./jobs.js";
+import { JobBridge, makeDelegatingStore } from "./job-bridge.js";
+import { deliverWebhook, validWebhookTarget } from "./webhooks.js";
+import { JobQueue } from "@querynx/queue";
+import { randomUUID } from "node:crypto";
 
 export interface AppDeps {
   config: ApiConfig;
@@ -69,7 +69,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           new SearxngProvider({
             baseUrl: config.searxngBaseUrl,
             engines: config.searxngEngines,
-          })
+          }),
         );
       }
       if (config.braveApiKey) {
@@ -83,7 +83,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         // assumed; instead we expose a clearly-unconfigured state that the
         // /v1/providers endpoint reports. The API still boots.
         providers.push(
-          new SearxngProvider({ baseUrl: config.searxngBaseUrl ?? 'http://localhost:8888' })
+          new SearxngProvider({
+            baseUrl: config.searxngBaseUrl ?? "http://localhost:8888",
+          }),
         );
       }
       return new SearchOrchestrator(providers, {
@@ -93,22 +95,22 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   const searchCache = new TTLCache<SearchResponse>(
     config.searchCacheTtlMs,
-    config.searchCacheMaxEntries
+    config.searchCacheMaxEntries,
   );
 
   // Anonymous-tier rate limiter keyed by remote address.
   const rateLimiter = new TokenBucketRateLimiter(
     config.anonymousRateLimitPerMinute,
-    config.anonymousRateLimitPerMinute / 60
+    config.anonymousRateLimitPerMinute / 60,
   );
 
   const app = Fastify({
     logger: {
       level: config.logLevel,
-      redact: ['req.headers.authorization', 'req.headers["x-api-key"]'],
+      redact: ["req.headers.authorization", 'req.headers["x-api-key"]'],
     },
     bodyLimit: 256 * 1024, // 256 KiB request cap
-    requestIdHeader: 'x-request-id',
+    requestIdHeader: "x-request-id",
     genReqId: () => randomUUID(),
     ajv: {
       customOptions: {
@@ -136,56 +138,72 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     void apiKeyStore
       .load()
       .then((records) => {
-        dbKeyHashes = new Set(records.filter((r) => !r.revoked).map((r) => r.hash));
+        dbKeyHashes = new Set(
+          records.filter((r) => !r.revoked).map((r) => r.hash),
+        );
       })
       .catch((err) => {
-        console.warn(`[auth] key store load failed: ${err instanceof Error ? err.message : String(err)}`);
+        console.warn(
+          `[auth] key store load failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       });
   }
 
-  app.addHook('onRequest', async (request) => {
+  app.addHook("onRequest", async (request) => {
     // Health endpoints are always public.
-    const url = request.raw.url ?? '/';
-    if (url === '/health' || url === '/ready' || url === '/metrics') return;
+    const url = request.raw.url ?? "/";
+    if (url === "/health" || url === "/ready" || url === "/metrics") return;
 
     const key =
-      (request.headers['x-api-key'] as string | undefined) ??
-      extractBearer(request.headers['authorization']);
+      (request.headers["x-api-key"] as string | undefined) ??
+      extractBearer(request.headers["authorization"]);
     const envValid = key !== undefined && config.apiKeys.includes(key);
     const dbValid =
-      key !== undefined && dbKeyHashes !== null && dbKeyHashes.has(hashApiKey(key));
+      key !== undefined &&
+      dbKeyHashes !== null &&
+      dbKeyHashes.has(hashApiKey(key));
     const valid = envValid || dbValid;
 
     // /v1 routes enforce keys here. /search (Tavily-compat) may carry
     // the key in its JSON body per the Tavily contract, so its handler
     // performs the check — don't reject before the body is parsed.
-    const isHeaderProtected = url.startsWith('/v1');
-    if (isHeaderProtected && (config.apiKeys.length > 0 || dbKeyHashes !== null) && !valid) {
-      throw new UnauthorizedError('Missing or invalid API key');
+    const isHeaderProtected = url.startsWith("/v1");
+    if (
+      isHeaderProtected &&
+      (config.apiKeys.length > 0 || dbKeyHashes !== null) &&
+      !valid
+    ) {
+      throw new UnauthorizedError("Missing or invalid API key");
     }
     // When no API keys are configured the API is open (local dev mode).
     // Rate limiting still applies.
-    const rateKey = valid && key ? `key:${hashApiKey(key)}` : `ip:${request.ip}`;
+    const rateKey =
+      valid && key ? `key:${hashApiKey(key)}` : `ip:${request.ip}`;
     if (!rateLimiter.tryConsume(rateKey)) {
-      const retryAfter = Math.ceil(rateLimiter.msUntilAvailable(rateKey) / 1000);
-      const err = new UnauthorizedError('Rate limit exceeded');
+      const retryAfter = Math.ceil(
+        rateLimiter.msUntilAvailable(rateKey) / 1000,
+      );
+      const err = new UnauthorizedError("Rate limit exceeded");
       // Attach retry hint via headers on the reply.
-      request.headers['retry-after'] = String(retryAfter);
-      throw Object.assign(err, { httpStatus: 429, code: 'RATE_LIMITED' } as const);
+      request.headers["retry-after"] = String(retryAfter);
+      throw Object.assign(err, {
+        httpStatus: 429,
+        code: "RATE_LIMITED",
+      } as const);
     }
   });
 
   // Usage accounting (best-effort; failures never fail requests).
-  app.addHook('onResponse', async (request, reply) => {
+  app.addHook("onResponse", async (request, reply) => {
     if (!usageStore) return;
-    const url = request.raw.url ?? '/';
-    if (url === '/health' || url === '/ready' || url === '/metrics') return;
-    if (!url.startsWith('/v1') && url !== '/search') return;
-    const key = (request.headers['x-api-key'] as string | undefined) ?? null;
+    const url = request.raw.url ?? "/";
+    if (url === "/health" || url === "/ready" || url === "/metrics") return;
+    if (!url.startsWith("/v1") && url !== "/search") return;
+    const key = (request.headers["x-api-key"] as string | undefined) ?? null;
     usageStore
       .record({
         apiKeyHash: key ? hashApiKey(key) : null,
-        route: url.split('?')[0]!,
+        route: url.split("?")[0]!,
         statusCode: reply.statusCode,
         durationMs: Math.max(0, Math.round(reply.elapsedTime ?? 0)),
       })
@@ -199,16 +217,16 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     // Fastify schema violations arrive as FST_ERR_VALIDATION with
     // statusCode 400 — surface them as structured validation errors.
     const isFastifyValidation =
-      typeof err === 'object' &&
+      typeof err === "object" &&
       err !== null &&
-      'validation' in err &&
-      'statusCode' in err;
+      "validation" in err &&
+      "statusCode" in err;
     if (isFastifyValidation) {
       const validationErr = err as { statusCode: number; validation: unknown };
       return reply.code(validationErr.statusCode || 400).send({
         error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Request failed schema validation',
+          code: "VALIDATION_ERROR",
+          message: "Request failed schema validation",
           details: validationErr.validation,
           requestId: request.id,
         },
@@ -216,23 +234,26 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     }
     const { error, status } = toSafeError(err, request.id);
     if (status >= 500) {
-      request.log.error({ err }, 'internal error');
+      request.log.error({ err }, "internal error");
     } else {
-      request.log.warn({ message: String((err as Error)?.message ?? err) }, 'request failed');
+      request.log.warn(
+        { message: String((err as Error)?.message ?? err) },
+        "request failed",
+      );
     }
     const retryAfter = (err as { retryAfter?: string }).retryAfter;
-    if (retryAfter) reply.header('retry-after', retryAfter);
+    if (retryAfter) reply.header("retry-after", retryAfter);
     reply.code(status).send({ error, requestId: request.id });
   });
 
   // --- Health ---------------------------------------------------------------
-  app.get('/health', async () => ({ status: 'ok', version: '0.1.0' }));
+  app.get("/health", async () => ({ status: "ok", version: "0.1.0" }));
 
-  app.get('/ready', async () => {
+  app.get("/ready", async () => {
     const health = orchestrator.getProviderHealth();
     const anyConfigured = health.some((h) => h.configured);
     return {
-      status: anyConfigured ? 'ready' : 'degraded',
+      status: anyConfigured ? "ready" : "degraded",
       providers: health.map((h) => ({
         name: h.name,
         configured: h.configured,
@@ -242,45 +263,59 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     };
   });
 
-  app.get('/metrics', async () => {
+  app.get("/metrics", async () => {
     const s = searchCache.stats();
     return [
-      '# HELP querynx_cache_hits Total cache hits',
-      '# TYPE querynx_cache_hits counter',
+      "# HELP querynx_cache_hits Total cache hits",
+      "# TYPE querynx_cache_hits counter",
       `querynx_cache_hits ${s.hits}`,
-      '# HELP querynx_cache_misses Total cache misses',
-      '# TYPE querynx_cache_misses counter',
+      "# HELP querynx_cache_misses Total cache misses",
+      "# TYPE querynx_cache_misses counter",
       `querynx_cache_misses ${s.misses}`,
-      '# HELP querynx_cache_entries Current cache entries',
-      '# TYPE querynx_cache_entries gauge',
+      "# HELP querynx_cache_entries Current cache entries",
+      "# TYPE querynx_cache_entries gauge",
       `querynx_cache_entries ${s.size}`,
-      '# HELP querynx_cache_stampedes_prevented Coalesced duplicate lookups',
-      '# TYPE querynx_cache_stampedes_prevented counter',
+      "# HELP querynx_cache_stampedes_prevented Coalesced duplicate lookups",
+      "# TYPE querynx_cache_stampedes_prevented counter",
       `querynx_cache_stampedes_prevented ${s.stampedesPrevented}`,
-    ].join('\n');
+    ].join("\n");
   });
 
   // --- v1/search ------------------------------------------------------------
   const searchSchema = {
     body: {
-      type: 'object',
-      required: ['query'],
+      type: "object",
+      required: ["query"],
       additionalProperties: false,
       properties: {
-        query: { type: 'string', minLength: 1, maxLength: 500 },
-        maxResults: { type: 'integer', minimum: 1, maximum: 50 },
-        includeDomains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
-        excludeDomains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
-        language: { type: 'string', maxLength: 10 },
-        region: { type: 'string', maxLength: 10 },
-        freshness: { type: 'string', enum: ['any', 'day', 'week', 'month', 'year'] },
-        category: { type: 'string', enum: ['web', 'news', 'academic', 'code', 'docs'] },
-        providers: { type: 'array', items: { type: 'string' }, maxItems: 10 },
+        query: { type: "string", minLength: 1, maxLength: 500 },
+        maxResults: { type: "integer", minimum: 1, maximum: 50 },
+        includeDomains: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 20,
+        },
+        excludeDomains: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 20,
+        },
+        language: { type: "string", maxLength: 10 },
+        region: { type: "string", maxLength: 10 },
+        freshness: {
+          type: "string",
+          enum: ["any", "day", "week", "month", "year"],
+        },
+        category: {
+          type: "string",
+          enum: ["web", "news", "academic", "code", "docs"],
+        },
+        providers: { type: "array", items: { type: "string" }, maxItems: 10 },
       },
     },
   } as const;
 
-  app.post('/v1/search', { schema: searchSchema }, async (request, reply) => {
+  app.post("/v1/search", { schema: searchSchema }, async (request, reply) => {
     const body = request.body as {
       query: string;
       maxResults?: number;
@@ -288,8 +323,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       excludeDomains?: string[];
       language?: string;
       region?: string;
-      freshness?: SearchQuery['freshness'];
-      category?: SearchQuery['category'];
+      freshness?: SearchQuery["freshness"];
+      category?: SearchQuery["category"];
       providers?: string[];
     };
 
@@ -300,8 +335,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       excludeDomains: body.excludeDomains,
       language: body.language,
       region: body.region,
-      freshness: body.freshness ?? 'any',
-      category: body.category ?? 'web',
+      freshness: body.freshness ?? "any",
+      category: body.category ?? "web",
     };
 
     const cacheKey = searchCacheKey({
@@ -321,28 +356,38 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       const r = await orchestrator.search(query, { providers: body.providers });
       return { ...r, diagnostics: { ...r.diagnostics, cacheHit: false } };
     });
-    const fromCache = Date.now() - started < 2 && response.diagnostics.cacheHit !== false;
+    const fromCache =
+      Date.now() - started < 2 && response.diagnostics.cacheHit !== false;
 
-    reply.header('x-querynx-cache', fromCache ? 'hit' : 'miss');
+    reply.header("x-querynx-cache", fromCache ? "hit" : "miss");
     return { ...response, requestId: request.id };
   });
 
   // --- v1/extract -------------------------------------------------------------
   app.post(
-    '/v1/extract',
+    "/v1/extract",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['urls'],
+          type: "object",
+          required: ["urls"],
           properties: {
-            urls: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 10 },
-            format: { type: 'string', enum: ['markdown', 'html', 'text'] },
-            includeLinks: { type: 'boolean' },
-            includeTables: { type: 'boolean' },
-            includeMetadata: { type: 'boolean' },
-            maxContentLength: { type: 'integer', minimum: 1000, maximum: 500_000 },
-            timeoutMs: { type: 'integer', minimum: 1000, maximum: 60_000 },
+            urls: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 1,
+              maxItems: 10,
+            },
+            format: { type: "string", enum: ["markdown", "html", "text"] },
+            includeLinks: { type: "boolean" },
+            includeTables: { type: "boolean" },
+            includeMetadata: { type: "boolean" },
+            maxContentLength: {
+              type: "integer",
+              minimum: 1000,
+              maximum: 500_000,
+            },
+            timeoutMs: { type: "integer", minimum: 1000, maximum: 60_000 },
           },
           additionalProperties: false,
         },
@@ -351,7 +396,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     async (request) => {
       const body = request.body as {
         urls: string[];
-        format?: 'markdown' | 'html' | 'text';
+        format?: "markdown" | "html" | "text";
         includeLinks?: boolean;
         includeTables?: boolean;
         includeMetadata?: boolean;
@@ -363,7 +408,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       for (const raw of body.urls) {
         const url = canonicalizeUrl(raw);
         if (!url) throw new ValidationError(`Invalid URL: ${raw}`);
-        if (!isSafeOutboundUrl(url)) throw new ValidationError(`Blocked URL target: ${raw}`);
+        if (!isSafeOutboundUrl(url))
+          throw new ValidationError(`Blocked URL target: ${raw}`);
         canonical.push(url);
       }
 
@@ -374,48 +420,68 @@ export function buildApp(deps: AppDeps): FastifyInstance {
               timeoutMs: body.timeoutMs ?? 15_000,
               maxBytes: 5 * 1024 * 1024,
             });
-            const document = extractDocument(fetched.body, fetched.url, fetched.statusCode, {
-              format: body.format ?? 'markdown',
-              includeLinks: body.includeLinks ?? false,
-              includeTables: body.includeTables ?? false,
-              includeMetadata: body.includeMetadata ?? true,
-              maxContentLength: body.maxContentLength ?? 200_000,
-            });
+            const document = extractDocument(
+              fetched.body,
+              fetched.url,
+              fetched.statusCode,
+              {
+                format: body.format ?? "markdown",
+                includeLinks: body.includeLinks ?? false,
+                includeTables: body.includeTables ?? false,
+                includeMetadata: body.includeMetadata ?? true,
+                maxContentLength: body.maxContentLength ?? 200_000,
+              },
+            );
             return { url, ok: true, document };
           } catch (err) {
             return {
               url,
               ok: false,
-              error: err instanceof Error ? err.message : 'extraction failed',
+              error: err instanceof Error ? err.message : "extraction failed",
             };
           }
-        })
+        }),
       );
 
-      return { results, generatedAt: new Date().toISOString(), requestId: request.id };
-    }
+      return {
+        results,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    },
   );
 
   // --- Tavily-compatible surface: POST /search (drop-in) ------------------------
   app.post(
-    '/search',
+    "/search",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: true,
-          required: ['query'],
+          required: ["query"],
           properties: {
-            api_key: { type: 'string' },
-            query: { type: 'string', minLength: 1, maxLength: 400 },
-            search_depth: { type: 'string', enum: ['basic', 'advanced'] },
-            topic: { type: 'string', enum: ['general', 'news'] },
-            max_results: { type: 'integer', minimum: 1, maximum: 20 },
-            include_answer: { type: 'boolean' },
-            include_raw_content: { type: 'boolean' },
-            include_domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
-            exclude_domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
-            time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
+            api_key: { type: "string" },
+            query: { type: "string", minLength: 1, maxLength: 400 },
+            search_depth: { type: "string", enum: ["basic", "advanced"] },
+            topic: { type: "string", enum: ["general", "news"] },
+            max_results: { type: "integer", minimum: 1, maximum: 20 },
+            include_answer: { type: "boolean" },
+            include_raw_content: { type: "boolean" },
+            include_domains: {
+              type: "array",
+              items: { type: "string" },
+              maxItems: 20,
+            },
+            exclude_domains: {
+              type: "array",
+              items: { type: "string" },
+              maxItems: 20,
+            },
+            time_range: {
+              type: "string",
+              enum: ["day", "week", "month", "year"],
+            },
           },
         },
       },
@@ -426,24 +492,28 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       const body = request.body as {
         api_key?: string;
         query: string;
-        search_depth?: 'basic' | 'advanced';
-        topic?: 'general' | 'news';
+        search_depth?: "basic" | "advanced";
+        topic?: "general" | "news";
         max_results?: number;
         include_answer?: boolean;
         include_raw_content?: boolean;
         include_domains?: string[];
         exclude_domains?: string[];
-        time_range?: 'day' | 'week' | 'month' | 'year';
+        time_range?: "day" | "week" | "month" | "year";
       };
 
       if (config.apiKeys.length > 0) {
         const headerKey =
-          (request.headers['x-api-key'] as string | undefined) ??
-          (request.headers['authorization'] as string | undefined)?.replace(/^Bearer\s+/i, '');
+          (request.headers["x-api-key"] as string | undefined) ??
+          (request.headers["authorization"] as string | undefined)?.replace(
+            /^Bearer\s+/i,
+            "",
+          );
         const key = body.api_key ?? headerKey;
         if (!key || !config.apiKeys.includes(key)) {
           reply.code(401).send({
-            detail: 'Invalid or missing API key. ' +
+            detail:
+              "Invalid or missing API key. " +
               'Pass it as "api_key" in the body or as the Authorization header.',
           });
           return reply;
@@ -461,18 +531,21 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         exclude_domains: body.exclude_domains,
         time_range: body.time_range,
       });
-      return { ...response, response_time: Number(((Date.now() - started) / 1000).toFixed(2)) };
-    }
+      return {
+        ...response,
+        response_time: Number(((Date.now() - started) / 1000).toFixed(2)),
+      };
+    },
   );
 
   // --- v1/providers ------------------------------------------------------------
-  app.get('/v1/providers', async () => ({
+  app.get("/v1/providers", async () => ({
     providers: orchestrator.getProviderHealth(),
   }));
 
   // --- v1/search/stream (SSE) ---------------------------------------------------
   app.post(
-    '/v1/search/stream',
+    "/v1/search/stream",
     { schema: searchSchema },
     async (request, reply) => {
       const body = request.body as {
@@ -482,8 +555,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         excludeDomains?: string[];
         language?: string;
         region?: string;
-        freshness?: SearchQuery['freshness'];
-        category?: SearchQuery['category'];
+        freshness?: SearchQuery["freshness"];
+        category?: SearchQuery["category"];
         providers?: string[];
       };
 
@@ -494,67 +567,81 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         excludeDomains: body.excludeDomains,
         language: body.language,
         region: body.region,
-        freshness: body.freshness ?? 'any',
-        category: body.category ?? 'web',
+        freshness: body.freshness ?? "any",
+        category: body.category ?? "web",
       };
 
       // SSE setup: no compression, no buffering, explicit event framing.
       reply.raw.writeHead(200, {
-        'content-type': 'text/event-stream',
-        'cache-control': 'no-cache, no-transform',
-        connection: 'keep-alive',
-        'x-accel-buffering': 'no',
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
       });
 
       const send = (event: string, data: unknown) => {
         reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       };
 
-      // Client disconnect cancels the in-flight provider work.
+      // Client disconnect cancels the in-flight provider work. The
+      // signal must be the RESPONSE socket: the request stream closes
+      // after the body ends (keep-alive POSTs), which would abort the
+      // search immediately.
       const disconnect = new AbortController();
-      request.raw.on('close', () => disconnect.abort());
+      reply.raw.on("close", () => disconnect.abort());
 
-      send('start', { requestId: request.id, query: query.query });
+      send("start", { requestId: request.id, query: query.query });
 
       try {
         const response = await orchestrator.search(query, {
           providers: body.providers,
           signal: disconnect.signal,
           onProviderResult: (provider, results) => {
-            send('partial', { provider, count: results.length });
+            send("partial", { provider, count: results.length });
           },
         });
-        send('results', { results: response.results, diagnostics: response.diagnostics });
-        send('done', { requestId: request.id });
+        send("results", {
+          results: response.results,
+          diagnostics: response.diagnostics,
+        });
+        send("done", { requestId: request.id });
       } catch (err) {
-        send('error', {
-          message: err instanceof Error ? err.message : 'search failed',
+        send("error", {
+          message: err instanceof Error ? err.message : "search failed",
         });
       }
       reply.raw.end();
       return reply;
-    }
+    },
   );
 
   // --- v1/research/stream (SSE) ----------------------------------------------------
   app.post(
-    '/v1/research/stream',
+    "/v1/research/stream",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['objective'],
+          required: ["objective"],
           properties: {
-            objective: { type: 'string', minLength: 3, maxLength: 1000 },
+            objective: { type: "string", minLength: 3, maxLength: 1000 },
             mode: {
-              type: 'string',
-              enum: ['fast', 'standard', 'advanced', 'deep', 'academic', 'technical', 'documentation'],
+              type: "string",
+              enum: [
+                "fast",
+                "standard",
+                "advanced",
+                "deep",
+                "academic",
+                "technical",
+                "documentation",
+              ],
             },
-            maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
-            maxPages: { type: 'integer', minimum: 1, maximum: 50 },
-            timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
-            webhook: { type: 'string', maxLength: 2048 },
+            maxQueries: { type: "integer", minimum: 1, maximum: 20 },
+            maxPages: { type: "integer", minimum: 1, maximum: 50 },
+            timeMs: { type: "integer", minimum: 1000, maximum: 600_000 },
+            webhook: { type: "string", maxLength: 2048 },
           },
         },
       },
@@ -573,10 +660,10 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       }
 
       reply.raw.writeHead(200, {
-        'content-type': 'text/event-stream',
-        'cache-control': 'no-cache, no-transform',
-        connection: 'keep-alive',
-        'x-accel-buffering': 'no',
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
       });
 
       const send = (event: string, data: unknown) => {
@@ -584,14 +671,14 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       };
 
       const disconnect = new AbortController();
-      request.raw.on('close', () => disconnect.abort());
+      reply.raw.on("close", () => disconnect.abort());
 
-      send('start', { requestId: request.id, objective: body.objective });
+      send("start", { requestId: request.id, objective: body.objective });
 
       const engine = new ResearchEngine();
       try {
         const report = await engine.research(body.objective, {
-          mode: body.mode ?? 'standard',
+          mode: body.mode ?? "standard",
           budgetOverrides: {
             ...(body.maxQueries ? { maxQueries: body.maxQueries } : {}),
             ...(body.maxPages ? { maxPages: body.maxPages } : {}),
@@ -601,16 +688,23 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             const r = await orchestrator.search({
               query: queryText,
               maxResults,
-              freshness: 'any',
-              category: 'web',
+              freshness: "any",
+              category: "web",
             });
             return r.results;
           },
           extractContent: async (url) => {
             try {
-              const fetched = await fetchUrl(url, { timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024 });
+              const fetched = await fetchUrl(url, {
+                timeoutMs: 10_000,
+                maxBytes: 2 * 1024 * 1024,
+              });
               if (fetched.statusCode !== 200) return null;
-              const doc = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+              const doc = extractDocument(
+                fetched.body,
+                fetched.url,
+                fetched.statusCode,
+              );
               return {
                 title: doc.title ?? url,
                 content: doc.content,
@@ -621,37 +715,39 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             }
           },
           onEvent: (event) => {
-            if (event.type === 'completed') return; // sent explicitly below
+            if (event.type === "completed") return; // sent explicitly below
             send(event.type, event as Record<string, unknown>);
           },
           signal: disconnect.signal,
         });
-        send('completed', { report });
+        send("completed", { report });
       } catch (err) {
-        send('error', { message: err instanceof Error ? err.message : 'research failed' });
+        send("error", {
+          message: err instanceof Error ? err.message : "research failed",
+        });
       }
       reply.raw.end();
       return reply;
-    }
+    },
   );
 
   // --- v1/search/batch ---------------------------------------------------------
   app.post(
-    '/v1/search/batch',
+    "/v1/search/batch",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['queries'],
+          required: ["queries"],
           properties: {
             queries: {
-              type: 'array',
+              type: "array",
               minItems: 1,
               maxItems: 20,
-              items: { type: 'string', minLength: 1, maxLength: 500 },
+              items: { type: "string", minLength: 1, maxLength: 500 },
             },
-            maxResults: { type: 'integer', minimum: 1, maximum: 50 },
+            maxResults: { type: "integer", minimum: 1, maximum: 50 },
           },
         },
       },
@@ -667,53 +763,71 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           const query: SearchQuery = {
             query: queryText.trim(),
             maxResults,
-            freshness: 'any',
-            category: 'web',
+            freshness: "any",
+            category: "web",
           };
           const cacheKey = searchCacheKey({
             query: query.query,
             maxResults,
-            freshness: 'any',
-            category: 'web',
+            freshness: "any",
+            category: "web",
           });
           try {
-            const response = await searchCache.getOrCompute(cacheKey, async () => {
-              const r = await orchestrator.search(query);
-              return { ...r, diagnostics: { ...r.diagnostics, cacheHit: false } };
-            });
+            const response = await searchCache.getOrCompute(
+              cacheKey,
+              async () => {
+                const r = await orchestrator.search(query);
+                return {
+                  ...r,
+                  diagnostics: { ...r.diagnostics, cacheHit: false },
+                };
+              },
+            );
             return { ok: true, ...response };
           } catch (err) {
             return {
               query: queryText,
               ok: false,
-              error: err instanceof Error ? err.message : 'search failed',
+              error: err instanceof Error ? err.message : "search failed",
             };
           }
-        })
+        }),
       );
-      return { responses, generatedAt: new Date().toISOString(), requestId: request.id };
-    }
+      return {
+        responses,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    },
   );
 
   // --- v1/research ---------------------------------------------------------------
   app.post(
-    '/v1/research',
+    "/v1/research",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['objective'],
+          required: ["objective"],
           properties: {
-            objective: { type: 'string', minLength: 3, maxLength: 1000 },
+            objective: { type: "string", minLength: 3, maxLength: 1000 },
             mode: {
-              type: 'string',
-              enum: ['fast', 'standard', 'advanced', 'deep', 'academic', 'technical', 'documentation'],
+              type: "string",
+              enum: [
+                "fast",
+                "standard",
+                "advanced",
+                "deep",
+                "academic",
+                "technical",
+                "documentation",
+              ],
             },
-            maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
-            maxPages: { type: 'integer', minimum: 1, maximum: 50 },
-            timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
-            webhook: { type: 'string', maxLength: 2048 },
+            maxQueries: { type: "integer", minimum: 1, maximum: 20 },
+            maxPages: { type: "integer", minimum: 1, maximum: 50 },
+            timeMs: { type: "integer", minimum: 1000, maximum: 600_000 },
+            webhook: { type: "string", maxLength: 2048 },
           },
         },
       },
@@ -735,7 +849,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       const events: ResearchEvent[] = [];
 
       const report = await engine.research(body.objective, {
-        mode: body.mode ?? 'standard',
+        mode: body.mode ?? "standard",
         budgetOverrides: {
           ...(body.maxQueries ? { maxQueries: body.maxQueries } : {}),
           ...(body.maxPages ? { maxPages: body.maxPages } : {}),
@@ -745,16 +859,23 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           const r = await orchestrator.search({
             query: queryText,
             maxResults,
-            freshness: 'any',
-            category: 'web',
+            freshness: "any",
+            category: "web",
           });
           return r.results;
         },
         extractContent: async (url) => {
           try {
-            const fetched = await fetchUrl(url, { timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024 });
+            const fetched = await fetchUrl(url, {
+              timeoutMs: 10_000,
+              maxBytes: 2 * 1024 * 1024,
+            });
             if (fetched.statusCode !== 200) return null;
-            const doc = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+            const doc = extractDocument(
+              fetched.body,
+              fetched.url,
+              fetched.statusCode,
+            );
             return {
               title: doc.title ?? url,
               content: doc.content,
@@ -767,49 +888,53 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         onEvent: (event) => events.push(event),
       });
 
-      reply.header('x-querynx-research-termination', report.termination);
+      reply.header("x-querynx-research-termination", report.termination);
 
       // Best-effort webhook delivery after the caller has the report.
       if (body.webhook) {
         void deliverWebhook(
           {
             url: body.webhook,
-            event: 'research.completed',
+            event: "research.completed",
             payload: {
               objective: body.objective,
               report,
             },
             requestId: request.id,
           },
-          { secret: process.env['QUERYNX_WEBHOOK_SECRET'] }
+          { secret: process.env["QUERYNX_WEBHOOK_SECRET"] },
         ).then((result) => {
           request.log.info(
             { webhook: result.url, ok: result.ok, attempts: result.attempts },
-            'webhook delivery finished'
+            "webhook delivery finished",
           );
         });
       }
       return { report, events, requestId: request.id };
-    }
+    },
   );
 
   // --- Native index: ingest and search the local corpus -----------------------
   // Postgres durability when DATABASE_URL is configured; memory otherwise.
-  const persistentIndex = deps.indexEngine ?? new PersistentIndex({
-    memoryEngine: new MemorySearchEngine(),
-    ...(config.databaseUrl
-      ? { documentStore: connectStores(config.databaseUrl).documentStore }
-      : {}),
-  });
+  const persistentIndex =
+    deps.indexEngine ??
+    new PersistentIndex({
+      memoryEngine: new MemorySearchEngine(),
+      ...(config.databaseUrl
+        ? { documentStore: connectStores(config.databaseUrl).documentStore }
+        : {}),
+    });
   // Boot rehydration is fire-and-forget on purpose: the API serves
   // immediately while the corpus warms into memory.
   void persistentIndex.rehydrate().catch((err) => {
-    console.warn(`[persistence] rehydrate failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(
+      `[persistence] rehydrate failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   });
   const indexEngine = persistentIndex.engine;
 
   // --- v1/usage: request accounting (Postgres-backed) ---------------------------
-  app.get('/v1/usage', async (request) => {
+  app.get("/v1/usage", async (request) => {
     if (!usageStore) {
       return {
         usage: {
@@ -832,7 +957,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           p95DurationMs: 0,
         },
         persistent: true,
-        error: err instanceof Error ? err.message : 'usage query failed',
+        error: err instanceof Error ? err.message : "usage query failed",
         requestId: request.id,
       };
     }
@@ -846,105 +971,118 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerApiJobHandlers({ queue: jobQueue, index: persistentIndex });
   // Delegation: with DATABASE_URL + QUERYNX_DELEGATE_JOBS=1, submitted
   // jobs persist for fleet workers instead of running in-process.
-  const dbStores = config.databaseUrl ? connectStores(config.databaseUrl) : undefined;
+  const dbStores = config.databaseUrl
+    ? connectStores(config.databaseUrl)
+    : undefined;
   const jobBridge = new JobBridge({
     queue: jobQueue,
-    ...(config.databaseUrl && process.env['QUERYNX_DELEGATE_JOBS'] === '1'
+    ...(config.databaseUrl && process.env["QUERYNX_DELEGATE_JOBS"] === "1"
       ? { store: makeDelegatingStore(dbStores!.jobStore) }
       : {}),
   });
 
   app.post(
-    '/v1/jobs',
+    "/v1/jobs",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['type', 'payload'],
+          required: ["type", "payload"],
           properties: {
-            type: { type: 'string', enum: ['crawl', 'index', 'research'] },
-            payload: { type: 'object', additionalProperties: true },
-            priority: { type: 'integer', minimum: 0, maximum: 10 },
+            type: { type: "string", enum: ["crawl", "index", "research"] },
+            payload: { type: "object", additionalProperties: true },
+            priority: { type: "integer", minimum: 0, maximum: 10 },
           },
         },
       },
     },
     async (request, reply) => {
       const body = request.body as {
-        type: 'crawl' | 'index' | 'research';
+        type: "crawl" | "index" | "research";
         payload: Record<string, unknown>;
         priority?: number;
       };
       // Validate payload shape per type before enqueueing.
-      if (body.type === 'crawl' && !Array.isArray(body.payload['seeds'])) {
-        throw new ValidationError('crawl jobs require payload.seeds');
+      if (body.type === "crawl" && !Array.isArray(body.payload["seeds"])) {
+        throw new ValidationError("crawl jobs require payload.seeds");
       }
-      if (body.type === 'index' && typeof body.payload['url'] !== 'string') {
-        throw new ValidationError('index jobs require payload.url');
+      if (body.type === "index" && typeof body.payload["url"] !== "string") {
+        throw new ValidationError("index jobs require payload.url");
       }
       if (
-        body.type === 'research' &&
-        (typeof body.payload['objective'] !== 'string' ||
-          String(body.payload['objective']).length < 3)
+        body.type === "research" &&
+        (typeof body.payload["objective"] !== "string" ||
+          String(body.payload["objective"]).length < 3)
       ) {
-        throw new ValidationError('research jobs require payload.objective');
+        throw new ValidationError("research jobs require payload.objective");
       }
 
-      const job = await jobBridge.submit(body.type, body.payload, body.priority ?? 0);
+      const job = await jobBridge.submit(
+        body.type,
+        body.payload,
+        body.priority ?? 0,
+      );
       reply.code(202);
       return { job, requestId: request.id };
-    }
+    },
   );
 
-  app.get('/v1/jobs/:id', async (request, reply) => {
+  app.get("/v1/jobs/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const job = jobQueue.get(id);
     if (!job) {
       reply.code(404);
-      return { error: { code: 'NOT_FOUND', message: `no job ${id}` }, requestId: request.id };
+      return {
+        error: { code: "NOT_FOUND", message: `no job ${id}` },
+        requestId: request.id,
+      };
     }
     return { job: serializeJob(job), requestId: request.id };
   });
 
-  app.delete('/v1/jobs/:id', async (request, reply) => {
+  app.delete("/v1/jobs/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const cancelled = jobQueue.cancel(id);
     if (!cancelled) {
       reply.code(404);
-      return { error: { code: 'NOT_FOUND', message: `job ${id} not cancellable (missing or finished)` }, requestId: request.id };
+      return {
+        error: {
+          code: "NOT_FOUND",
+          message: `job ${id} not cancellable (missing or finished)`,
+        },
+        requestId: request.id,
+      };
     }
     return { cancelled: true, requestId: request.id };
   });
 
-  app.get('/v1/jobs', async (request) => ({
+  app.get("/v1/jobs", async (request) => ({
     stats: jobBridge.stats() ?? { delegated: true },
     deadLetters: jobQueue.deadLetters().slice(-20).map(serializeJob),
     delegated: jobBridge.delegated,
     requestId: request.id,
   }));
 
-
-
   /**
    * POST /v1/index — fetch a URL (or accept inline content), extract and
    * add it to the persistent local corpus. Returns the indexed document.
    */
   app.post(
-    '/v1/index',
+    "/v1/index",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['collection'],
+          required: ["collection"],
           properties: {
-            collection: { type: 'string', minLength: 1, maxLength: 100 },
-            url: { type: 'string', maxLength: 2048 },
-            content: { type: 'string', maxLength: 500_000 },
-            title: { type: 'string', maxLength: 500 },
+            collection: { type: "string", minLength: 1, maxLength: 100 },
+            url: { type: "string", maxLength: 2048 },
+            content: { type: "string", maxLength: 500_000 },
+            title: { type: "string", maxLength: 500 },
           },
-          anyOf: [{ required: ['url'] }, { required: ['content'] }],
+          anyOf: [{ required: ["url"] }, { required: ["content"] }],
         },
       },
     },
@@ -967,29 +1105,43 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           maxBytes: 5 * 1024 * 1024,
         });
         if (fetched.statusCode !== 200) {
-          throw new ValidationError(`Fetch returned HTTP ${fetched.statusCode}`);
+          throw new ValidationError(
+            `Fetch returned HTTP ${fetched.statusCode}`,
+          );
         }
-        const document = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+        const document = extractDocument(
+          fetched.body,
+          fetched.url,
+          fetched.statusCode,
+        );
         const indexed = await persistentIndex.index({
           ...fromExtractedDocument(document, body.collection),
         });
-        return { document: indexed, stats: persistentIndex.stats(), requestId: request.id };
+        return {
+          document: indexed,
+          stats: persistentIndex.stats(),
+          requestId: request.id,
+        };
       }
 
       // Inline content path: no fetch, direct ingest.
       const indexed = await persistentIndex.index({
         url: body.url ?? `inline://${request.id}`,
-        title: body.title ?? 'Untitled',
+        title: body.title ?? "Untitled",
         content: body.content!,
         collection: body.collection,
         fingerprint: `inline-${request.id}`,
       });
-      return { document: indexed, stats: persistentIndex.stats(), requestId: request.id };
-    }
+      return {
+        document: indexed,
+        stats: persistentIndex.stats(),
+        requestId: request.id,
+      };
+    },
   );
 
   /** GET /v1/index/stats — corpus statistics. */
-  app.get('/v1/index/stats', async (request) => ({
+  app.get("/v1/index/stats", async (request) => ({
     stats: persistentIndex.stats(),
     persistent: persistentIndex.persistent,
     requestId: request.id,
@@ -1001,19 +1153,19 @@ export function buildApp(deps: AppDeps): FastifyInstance {
    * retrieval contract is identical either way.)
    */
   app.post(
-    '/v1/search/semantic',
+    "/v1/search/semantic",
     {
       schema: {
         body: {
-          type: 'object',
+          type: "object",
           additionalProperties: false,
-          required: ['query'],
+          required: ["query"],
           properties: {
-            query: { type: 'string', minLength: 1, maxLength: 500 },
-            collection: { type: 'string', maxLength: 100 },
-            limit: { type: 'integer', minimum: 1, maximum: 50 },
-            domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
-            publishedAfter: { type: 'string', maxLength: 40 },
+            query: { type: "string", minLength: 1, maxLength: 500 },
+            collection: { type: "string", maxLength: 100 },
+            limit: { type: "integer", minimum: 1, maximum: 50 },
+            domains: { type: "array", items: { type: "string" }, maxItems: 20 },
+            publishedAfter: { type: "string", maxLength: 40 },
           },
         },
       },
@@ -1039,7 +1191,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           url: hit.document.url,
           snippet: hit.document.content.slice(0, 300),
           score: hit.score,
-          provider: 'querynx-index',
+          provider: "querynx-index",
           matchedTerms: hit.matchedTerms,
           collection: hit.document.collection,
           publishedAt: hit.document.publishedAt,
@@ -1048,13 +1200,13 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         generatedAt: new Date().toISOString(),
         requestId: request.id,
       };
-    }
+    },
   );
 
   return app;
 
   function extractBearer(header: unknown): string | undefined {
-    if (typeof header !== 'string') return undefined;
+    if (typeof header !== "string") return undefined;
     const match = header.match(/^Bearer\s+(.+)$/i);
     return match?.[1];
   }

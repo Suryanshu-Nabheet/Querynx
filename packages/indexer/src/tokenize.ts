@@ -10,10 +10,43 @@
 /** Minimal English stopword set. Kept small: aggressive stopword lists
  * harm technical queries ("c", "r", "go" are real terms). */
 const STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
-  'if', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that',
-  'the', 'their', 'then', 'there', 'these', 'this', 'to', 'was',
-  'were', 'will', 'with', 'what', 'when', 'where', 'who', 'why', 'how',
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "but",
+  "by",
+  "for",
+  "if",
+  "in",
+  "into",
+  "is",
+  "it",
+  "its",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "their",
+  "then",
+  "there",
+  "these",
+  "this",
+  "to",
+  "was",
+  "were",
+  "will",
+  "with",
+  "what",
+  "when",
+  "where",
+  "who",
+  "why",
+  "how",
 ]);
 
 /** Split text into indexable tokens. */
@@ -22,19 +55,21 @@ export function tokenize(text: string): string[] {
     .toLowerCase()
     // Underscores are identifier characters (foo_bar); all other
     // punctuation splits tokens.
-    .replace(/[^\p{L}\p{N}_\s]/gu, ' ')
-    .replace(/[_\s]+/g, (match) => (match.includes(' ') ? ' ' : '_'))
+    .replace(/[^\p{L}\p{N}_\s]/gu, " ")
+    .replace(/[_\s]+/g, (match) => (match.includes(" ") ? " " : "_"))
     .trim();
 
   if (!normalized) return [];
 
   return normalized
-    .split(' ')
+    .split(" ")
     .filter((token) => token.length > 1 && !STOPWORDS.has(token));
 }
 
 /** Build a term-frequency map from a token list. */
-export function termFrequencies(tokens: readonly string[]): Map<string, number> {
+export function termFrequencies(
+  tokens: readonly string[],
+): Map<string, number> {
   const tf = new Map<string, number>();
   for (const token of tokens) {
     tf.set(token, (tf.get(token) ?? 0) + 1);

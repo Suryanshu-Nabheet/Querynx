@@ -24,14 +24,14 @@ current state.
 
 ## Monorepo layout
 
-| Package | Responsibility |
-|---|---|
-| `packages/types` | Domain contracts shared across services |
-| `packages/shared` | Fingerprinting, URL canonicalization, bounded concurrency, circuit breakers, rate limiting, error taxonomy |
-| `packages/fetcher` | SSRF-hardened HTTP fetching: DNS validation, rebinding defense, redirect re-validation, size limits |
-| `packages/extractor` | Readability-based main-content extraction, metadata (JSON-LD/OG), tables, links, heading-aware chunking |
+| Package              | Responsibility                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/types`     | Domain contracts shared across services                                                                                                                        |
+| `packages/shared`    | Fingerprinting, URL canonicalization, bounded concurrency, circuit breakers, rate limiting, error taxonomy                                                     |
+| `packages/fetcher`   | SSRF-hardened HTTP fetching: DNS validation, rebinding defense, redirect re-validation, size limits                                                            |
+| `packages/extractor` | Readability-based main-content extraction, metadata (JSON-LD/OG), tables, links, heading-aware chunking                                                        |
 | `packages/providers` | Search provider adapters (SearXNG, Brave, Tavily) and the federated concurrent search orchestrator (RRF merge, dedupe, circuit breakers, graceful degradation) |
-| `apps/api` | Fastify HTTP API (in progress) |
+| `apps/api`           | Fastify HTTP API (in progress)                                                                                                                                 |
 
 ## Security posture
 

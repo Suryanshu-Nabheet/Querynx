@@ -29,7 +29,9 @@ export class CronExpression {
   constructor(readonly expression: string) {
     const fields = expression.trim().split(/\s+/);
     if (fields.length !== 5) {
-      throw new Error(`cron must have 5 fields, got ${fields.length}: "${expression}"`);
+      throw new Error(
+        `cron must have 5 fields, got ${fields.length}: "${expression}"`,
+      );
     }
     const ranges = [
       [0, 59], // minute
@@ -71,20 +73,26 @@ export class CronExpression {
   }
 }
 
-function compileField(field: string, min: number, max: number): (v: number) => boolean {
+function compileField(
+  field: string,
+  min: number,
+  max: number,
+): (v: number) => boolean {
   const allowed = new Set<number>();
-  for (const part of field.split(',')) {
-    const [range, stepRaw] = part.split('/');
+  for (const part of field.split(",")) {
+    const [range, stepRaw] = part.split("/");
     const step = stepRaw ? Number(stepRaw) : 1;
-    if (!Number.isInteger(step) || step < 1) throw new Error(`bad step in "${field}"`);
+    if (!Number.isInteger(step) || step < 1)
+      throw new Error(`bad step in "${field}"`);
     let lo = min;
     let hi = max;
-    if (range && range !== '*') {
-      if (range.includes('-')) {
-        const parts = range.split('-').map(Number);
+    if (range && range !== "*") {
+      if (range.includes("-")) {
+        const parts = range.split("-").map(Number);
         const a = parts[0]!;
         const b = parts[1]!;
-        if (!Number.isInteger(a) || !Number.isInteger(b)) throw new Error(`bad range "${range}"`);
+        if (!Number.isInteger(a) || !Number.isInteger(b))
+          throw new Error(`bad range "${range}"`);
         lo = a;
         hi = b;
       } else {
@@ -95,7 +103,8 @@ function compileField(field: string, min: number, max: number): (v: number) => b
         if (stepRaw) hi = max;
       }
     }
-    if (lo < min || hi > max || lo > hi) throw new Error(`out of range in "${field}"`);
+    if (lo < min || hi > max || lo > hi)
+      throw new Error(`out of range in "${field}"`);
     for (let v = lo; v <= hi; v += step) allowed.add(v);
   }
   return (value: number) => allowed.has(value);
@@ -112,7 +121,10 @@ export interface DueCheck {
  * allowedHours.
  */
 export class Scheduler {
-  private readonly schedules = new Map<string, Schedule & { lastRun: Date | null }>();
+  private readonly schedules = new Map<
+    string,
+    Schedule & { lastRun: Date | null }
+  >();
   private readonly compiled = new Map<string, CronExpression>();
 
   /** Register or replace a schedule. Validates the cron expression. */
@@ -120,7 +132,10 @@ export class Scheduler {
     const compiled = new CronExpression(schedule.cron);
     this.compiled.set(schedule.id, compiled);
     const existing = this.schedules.get(schedule.id);
-    this.schedules.set(schedule.id, { ...schedule, lastRun: existing?.lastRun ?? null });
+    this.schedules.set(schedule.id, {
+      ...schedule,
+      lastRun: existing?.lastRun ?? null,
+    });
     return compiled;
   }
 
@@ -149,7 +164,8 @@ export class Scheduler {
         if (hour < from! || hour > to!) continue;
       }
       if (entry.minIntervalMs && entry.lastRun) {
-        if (now.getTime() - entry.lastRun.getTime() < entry.minIntervalMs) continue;
+        if (now.getTime() - entry.lastRun.getTime() < entry.minIntervalMs)
+          continue;
       }
       due.push(entry);
     }

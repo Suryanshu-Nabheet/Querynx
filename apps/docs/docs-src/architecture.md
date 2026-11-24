@@ -102,9 +102,9 @@ objective ─▶ planner (initial queries) ─▶ search rounds ─▶ extract
 
 ## Services
 
-| Service | Role |
-|---|---|
-| api | HTTP surface: search/extract/index/research/jobs + SSE, Tavily-compat, auth, rate limits |
-| worker | Dedicated job fleet: crawl/index/research handlers, scheduler polling, metrics port |
-| dashboard | Browser console over the live API (static output, no server runtime) |
-| docs | This site — markdown built by a dependency-free generator |
+| Service   | Role                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------- |
+| api       | HTTP surface: search/extract/index/research/jobs + SSE, Tavily-compat, auth, rate limits |
+| worker    | Dedicated job fleet: crawl/index/research handlers, scheduler polling, metrics port      |
+| dashboard | Browser console over the live API (static output, no server runtime)                     |
+| docs      | This site — markdown built by a dependency-free generator                                |

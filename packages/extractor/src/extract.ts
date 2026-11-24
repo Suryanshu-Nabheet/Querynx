@@ -2,17 +2,25 @@
  * The full-document extraction pipeline: HTML in, ExtractedDocument out.
  */
 
-import type { ExtractedDocument, DocumentSection, ExtractFormat } from '@querynx/types';
-import { fingerprintText } from '@querynx/shared';
-import { extractWithReadability, htmlToText, normalizeIsoDate } from './readability.js';
+import type {
+  ExtractedDocument,
+  DocumentSection,
+  ExtractFormat,
+} from "@querynx/types";
+import { fingerprintText } from "@querynx/shared";
+import {
+  extractWithReadability,
+  htmlToText,
+  normalizeIsoDate,
+} from "./readability.js";
 import {
   extractHeadings,
   extractJsonLd,
   extractLinks,
   extractMetaTags,
   extractTables,
-} from './metadata.js';
-import { parseHTML } from 'linkedom';
+} from "./metadata.js";
+import { parseHTML } from "linkedom";
 
 export interface ExtractOptions {
   /** Output format for main content. */
@@ -36,13 +44,13 @@ export function splitSections(contentHtml: string): DocumentSection[] {
   if (!body) return [];
 
   const sections: DocumentSection[] = [];
-  let currentTitle = '';
+  let currentTitle = "";
   let currentParts: string[] = [];
   let start = 0;
   let cursor = 0;
 
   const flush = () => {
-    const content = currentParts.join(' ').replace(/\s+/g, ' ').trim();
+    const content = currentParts.join(" ").replace(/\s+/g, " ").trim();
     if (content) {
       sections.push({ title: currentTitle, content, offsets: [start, cursor] });
     }
@@ -52,7 +60,7 @@ export function splitSections(contentHtml: string): DocumentSection[] {
   const walk = (node: ChildNode | null, depth = 0) => {
     if (!node || depth > 60) return;
     if (node.nodeType === 3) {
-      const text = node.textContent ?? '';
+      const text = node.textContent ?? "";
       currentParts.push(text);
       cursor += text.length;
       // Continue along siblings; a text node never has children.
@@ -68,7 +76,7 @@ export function splitSections(contentHtml: string): DocumentSection[] {
     const tag = el.tagName.toUpperCase();
     if (/^H[1-6]$/.test(tag)) {
       flush();
-      currentTitle = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+      currentTitle = (el.textContent ?? "").replace(/\s+/g, " ").trim();
       start = cursor;
       // Continue past the heading so following content is captured.
       walk(el.nextSibling, depth + 1);
@@ -94,10 +102,10 @@ export function extractDocument(
   html: string,
   url: string,
   statusCode: number,
-  options: ExtractOptions = {}
+  options: ExtractOptions = {},
 ): ExtractedDocument {
   const {
-    format = 'markdown',
+    format = "markdown",
     maxContentLength = DEFAULT_MAX_CONTENT,
     includeLinks = true,
     includeTables = true,
@@ -114,15 +122,15 @@ export function extractDocument(
   const meta = includeMetadata ? extractMetaTags(document) : {};
   const title =
     readability?.title ??
-    meta['og:title'] ??
-    document.querySelector('title')?.textContent?.trim() ??
+    meta["og:title"] ??
+    document.querySelector("title")?.textContent?.trim() ??
     undefined;
 
   // Main content: Readability text, falling back to body text.
   let content = readability?.text ?? htmlToText(html);
   if (!content) {
     content = htmlToText(html);
-    warnings.push('readability-extraction-failed');
+    warnings.push("readability-extraction-failed");
   }
 
   if (content.length > maxContentLength) {
@@ -132,14 +140,20 @@ export function extractDocument(
 
   const sections = readability?.content
     ? splitSections(readability.content)
-    : [{ title: title ?? '', content, offsets: [0, content.length] as [number, number] }];
+    : [
+        {
+          title: title ?? "",
+          content,
+          offsets: [0, content.length] as [number, number],
+        },
+      ];
 
   // Metadata assembly from all sources.
-  let documentMeta: ExtractedDocument['metadata'];
+  let documentMeta: ExtractedDocument["metadata"];
   if (includeMetadata) {
     const canonical = document
       .querySelector('link[rel="canonical"]')
-      ?.getAttribute('href');
+      ?.getAttribute("href");
     let canonicalUrl: string | undefined;
     if (canonical) {
       try {
@@ -151,26 +165,26 @@ export function extractDocument(
     const jsonLd = extractJsonLd(document);
     const openGraph: Record<string, string> = {};
     for (const [k, v] of Object.entries(meta)) {
-      if (k.startsWith('og:')) openGraph[k] = v;
+      if (k.startsWith("og:")) openGraph[k] = v;
     }
     documentMeta = {
       canonicalUrl,
-      siteName: readability?.siteName ?? meta['og:site_name'],
-      description: readability?.excerpt ?? meta['description'],
-      author:
-        readability?.author ??
-        meta['author'] ??
-        jsonLdAuthor(jsonLd),
+      siteName: readability?.siteName ?? meta["og:site_name"],
+      description: readability?.excerpt ?? meta["description"],
+      author: readability?.author ?? meta["author"] ?? jsonLdAuthor(jsonLd),
       publishedAt:
         readability?.publishedTime ??
-        normalizeIsoDate(meta['article:published_time'] ?? meta['date']) ??
-        jsonLdDate(jsonLd, 'datePublished'),
+        normalizeIsoDate(meta["article:published_time"] ?? meta["date"]) ??
+        jsonLdDate(jsonLd, "datePublished"),
       modifiedAt:
-        normalizeIsoDate(meta['article:modified_time']) ??
-        jsonLdDate(jsonLd, 'dateModified'),
-      language: readability?.lang ?? document.documentElement?.getAttribute('lang') ?? undefined,
-      ogType: meta['og:type'],
-      ogImage: meta['og:image'],
+        normalizeIsoDate(meta["article:modified_time"]) ??
+        jsonLdDate(jsonLd, "dateModified"),
+      language:
+        readability?.lang ??
+        document.documentElement?.getAttribute("lang") ??
+        undefined,
+      ogType: meta["og:type"],
+      ogImage: meta["og:image"],
       jsonLd: jsonLd.length > 0 ? jsonLd : undefined,
       openGraph: Object.keys(openGraph).length > 0 ? openGraph : undefined,
       meta,
@@ -196,20 +210,22 @@ export function extractDocument(
   };
 }
 
-function jsonLdAuthor(jsonLd: ReadonlyArray<Record<string, unknown>>): string | undefined {
+function jsonLdAuthor(
+  jsonLd: ReadonlyArray<Record<string, unknown>>,
+): string | undefined {
   for (const node of jsonLd) {
-    const author = node['author'];
-    if (typeof author === 'string') return author;
+    const author = node["author"];
+    if (typeof author === "string") return author;
     if (Array.isArray(author) && author.length > 0) {
       const first = author[0];
-      if (first && typeof first === 'object' && 'name' in first) {
-        const name = (first as Record<string, unknown>)['name'];
-        if (typeof name === 'string') return name;
+      if (first && typeof first === "object" && "name" in first) {
+        const name = (first as Record<string, unknown>)["name"];
+        if (typeof name === "string") return name;
       }
     }
-    if (author && typeof author === 'object' && 'name' in author) {
-      const name = (author as Record<string, unknown>)['name'];
-      if (typeof name === 'string') return name;
+    if (author && typeof author === "object" && "name" in author) {
+      const name = (author as Record<string, unknown>)["name"];
+      if (typeof name === "string") return name;
     }
   }
   return undefined;
@@ -217,11 +233,11 @@ function jsonLdAuthor(jsonLd: ReadonlyArray<Record<string, unknown>>): string | 
 
 function jsonLdDate(
   jsonLd: ReadonlyArray<Record<string, unknown>>,
-  key: string
+  key: string,
 ): string | undefined {
   for (const node of jsonLd) {
     const value = node[key];
-    if (typeof value === 'string') return normalizeIsoDate(value);
+    if (typeof value === "string") return normalizeIsoDate(value);
   }
   return undefined;
 }

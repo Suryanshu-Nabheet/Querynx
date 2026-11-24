@@ -12,14 +12,14 @@
  * HMAC over the body so receivers can verify authenticity.
  */
 
-import { createHmac, randomUUID } from 'node:crypto';
-import { Agent, request as undiciRequest } from 'undici';
-import { isSafeOutboundUrl } from '@querynx/shared';
-import { validatingLookup } from '@querynx/fetcher';
+import { createHmac, randomUUID } from "node:crypto";
+import { Agent, request as undiciRequest } from "undici";
+import { isSafeOutboundUrl } from "@querynx/shared";
+import { validatingLookup } from "@querynx/fetcher";
 
 export interface WebhookDelivery {
   url: string;
-  event: 'research.completed';
+  event: "research.completed";
   payload: Record<string, unknown>;
   requestId: string;
 }
@@ -34,7 +34,7 @@ export interface WebhookResult {
 
 /** Compute the HMAC-SHA256 signature header value for a body. */
 export function signWebhook(body: string, secret: string): string {
-  return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
+  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 }
 
 /**
@@ -43,7 +43,7 @@ export function signWebhook(body: string, secret: string): string {
  */
 export async function deliverWebhook(
   delivery: WebhookDelivery,
-  options: { secret?: string; timeoutMs?: number } = {}
+  options: { secret?: string; timeoutMs?: number } = {},
 ): Promise<WebhookResult> {
   const { secret, timeoutMs = 10_000 } = options;
   const body = JSON.stringify({
@@ -61,23 +61,26 @@ export async function deliverWebhook(
     attempts++;
     try {
       const headers: Record<string, string> = {
-        'content-type': 'application/json',
-        'x-querynx-event': delivery.event,
-        'x-querynx-delivery': randomUUID(),
+        "content-type": "application/json",
+        "x-querynx-event": delivery.event,
+        "x-querynx-delivery": randomUUID(),
       };
       if (secret) {
-        headers['x-querynx-signature'] = signWebhook(body, secret);
+        headers["x-querynx-signature"] = signWebhook(body, secret);
       }
       // Fresh dispatcher per delivery: the shared fetcher agent caches
       // its DNS policy at creation, and webhook delivery must honor
       // the current policy (tests toggle it; operators set it at boot).
       const agent = new Agent({
-        connect: { timeout: Math.min(timeoutMs, 10_000), lookup: validatingLookup as never },
+        connect: {
+          timeout: Math.min(timeoutMs, 10_000),
+          lookup: validatingLookup as never,
+        },
       });
       try {
         const response = await undiciRequest(delivery.url, {
           dispatcher: agent,
-          method: 'POST',
+          method: "POST",
           headersTimeout: timeoutMs,
           bodyTimeout: timeoutMs,
           headers,
@@ -86,7 +89,12 @@ export async function deliverWebhook(
         lastStatus = response.statusCode;
         await response.body.dump();
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          return { url: delivery.url, ok: true, statusCode: response.statusCode, attempts };
+          return {
+            url: delivery.url,
+            ok: true,
+            statusCode: response.statusCode,
+            attempts,
+          };
         }
         lastError = `HTTP ${response.statusCode}`;
       } finally {

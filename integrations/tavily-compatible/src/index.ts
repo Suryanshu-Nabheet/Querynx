@@ -17,20 +17,20 @@
  * no /v1 prefix).
  */
 
-import type { SearchOrchestrator } from '@querynx/providers';
-import type { SearchQuery, SearchResult, Freshness } from '@querynx/types';
+import type { SearchOrchestrator } from "@querynx/providers";
+import type { SearchQuery, SearchResult, Freshness } from "@querynx/types";
 
 export interface TavilySearchRequest {
   api_key?: string;
   query: string;
-  search_depth?: 'basic' | 'advanced';
-  topic?: 'general' | 'news';
+  search_depth?: "basic" | "advanced";
+  topic?: "general" | "news";
   max_results?: number;
   include_answer?: boolean;
   include_raw_content?: boolean;
   include_domains?: string[];
   exclude_domains?: string[];
-  time_range?: 'day' | 'week' | 'month' | 'year';
+  time_range?: "day" | "week" | "month" | "year";
   chunk_token_limit?: number;
 }
 
@@ -51,20 +51,22 @@ export interface TavilySearchResponse {
 }
 
 /** Map Tavily's request fields onto the Querynx SearchQuery. */
-export function translateTavilyRequest(request: TavilySearchRequest): SearchQuery {
+export function translateTavilyRequest(
+  request: TavilySearchRequest,
+): SearchQuery {
   const timeRangeMap: Record<string, Freshness> = {
-    day: 'day',
-    week: 'week',
-    month: 'month',
-    year: 'year',
+    day: "day",
+    week: "week",
+    month: "month",
+    year: "year",
   };
   return {
     query: request.query,
     maxResults: Math.min(request.max_results ?? 5, 20),
     includeDomains: request.include_domains,
     excludeDomains: request.exclude_domains,
-    category: request.topic === 'news' ? 'news' : 'web',
-    freshness: request.time_range ? timeRangeMap[request.time_range] : 'any',
+    category: request.topic === "news" ? "news" : "web",
+    freshness: request.time_range ? timeRangeMap[request.time_range] : "any",
   };
 }
 
@@ -73,7 +75,7 @@ export function translateTavilyResponse(
   query: string,
   results: readonly SearchResult[],
   startedAt: number,
-  options: { includeAnswer?: boolean; answerText?: string } = {}
+  options: { includeAnswer?: boolean; answerText?: string } = {},
 ): TavilySearchResponse {
   const response: TavilySearchResponse = {
     query,
@@ -93,17 +95,20 @@ export function translateTavilyResponse(
 }
 
 /** Deterministic extractive answer for include_answer (no model). */
-function summarizeResults(query: string, results: readonly SearchResult[]): string {
+function summarizeResults(
+  query: string,
+  results: readonly SearchResult[],
+): string {
   if (results.length === 0) return `No results found for "${query}".`;
   const top = results.slice(0, 3);
   const parts = top.map((r) => `${r.snippet.slice(0, 200)} (${r.url})`);
-  return `Top results for "${query}": ${parts.join(' ')}`;
+  return `Top results for "${query}": ${parts.join(" ")}`;
 }
 
 /** Execute a Tavily-shaped search against the Querynx orchestrator. */
 export async function executeTavilySearch(
   orchestrator: SearchOrchestrator,
-  request: TavilySearchRequest
+  request: TavilySearchRequest,
 ): Promise<TavilySearchResponse> {
   const startedAt = Date.now();
   const query = translateTavilyRequest(request);
@@ -114,7 +119,10 @@ export async function executeTavilySearch(
 }
 
 /** Tavily-compatible error envelope. */
-export function tavilyError(message: string, detail?: string): {
+export function tavilyError(
+  message: string,
+  detail?: string,
+): {
   body: { detail: string };
   status: number;
 } {

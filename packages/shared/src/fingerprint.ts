@@ -32,8 +32,8 @@ const MASK64 = 0xffffffffn;
 export function normalizeForFingerprinting(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -77,10 +77,12 @@ export function fingerprintText(text: string): string {
 function serializeMins(mins: readonly number[]): string {
   // Fold each bucket's minimum into 8 hex digits for compact storage.
   return mins
-    .map((m) => (Number.isFinite(m) ? m.toString(16).padStart(8, '0') : 'ffffffff'))
-    .join('')
+    .map((m) =>
+      Number.isFinite(m) ? m.toString(16).padStart(8, "0") : "ffffffff",
+    )
+    .join("")
     .slice(0, SKETCH_BUCKETS * 8)
-    .padEnd(SKETCH_BUCKETS * 8, '0');
+    .padEnd(SKETCH_BUCKETS * 8, "0");
 }
 
 /**
@@ -98,7 +100,7 @@ export function fingerprintSimilarity(a: string, b: string): number {
   for (let i = 0; i + width <= a.length; i += width) {
     const x = a.slice(i, i + width);
     const y = b.slice(i, i + width);
-    if (x === 'ffffffff' && y === 'ffffffff') continue;
+    if (x === "ffffffff" && y === "ffffffff") continue;
     comparable++;
     if (x === y) matches++;
   }
@@ -118,14 +120,15 @@ export function canonicalDedupeKey(url: string): string {
     for (const [key, value] of u.searchParams) {
       const k = key.toLowerCase();
       // Preserve pagination identifiers only; strip tracking params.
-      if (k === 'p' || k === 'page' || k === 'id') {
+      if (k === "p" || k === "page" || k === "id") {
         keepParams.push(`${k}=${value}`);
       }
     }
-    let path = u.pathname.replace(/\/+$/, '');
-    if (path === '') path = '/';
-    const query = keepParams.length > 0 ? `?${keepParams.sort().join('&')}` : '';
-    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    let path = u.pathname.replace(/\/+$/, "");
+    if (path === "") path = "/";
+    const query =
+      keepParams.length > 0 ? `?${keepParams.sort().join("&")}` : "";
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
     return `${host}${path}${query}`;
   } catch {
     return url;

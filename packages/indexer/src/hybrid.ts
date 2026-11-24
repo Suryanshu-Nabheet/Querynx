@@ -7,7 +7,7 @@
  * model), so semantic retrieval works without mandating a model.
  */
 
-import type { RetrievalHit, RetrievalQuery } from './store.js';
+import type { RetrievalHit, RetrievalQuery } from "./store.js";
 
 /** A pluggable vector store over indexed document ids. */
 export interface VectorStore {
@@ -16,12 +16,19 @@ export interface VectorStore {
   /** Remove a document's vector. */
   remove(docId: string): void;
   /** k nearest neighbors by cosine similarity. */
-  search(embedding: readonly number[], k: number, collection?: string): Array<{ docId: string; similarity: number }>;
+  search(
+    embedding: readonly number[],
+    k: number,
+    collection?: string,
+  ): Array<{ docId: string; similarity: number }>;
 }
 
 /** In-memory cosine-similarity vector store. */
 export class MemoryVectorStore implements VectorStore {
-  private readonly vectors = new Map<string, { values: readonly number[]; norm: number; collection?: string }>();
+  private readonly vectors = new Map<
+    string,
+    { values: readonly number[]; norm: number; collection?: string }
+  >();
 
   upsert(docId: string, embedding: readonly number[]): void {
     this.vectors.set(docId, {
@@ -37,7 +44,7 @@ export class MemoryVectorStore implements VectorStore {
   search(
     embedding: readonly number[],
     k: number,
-    collection?: string
+    collection?: string,
   ): Array<{ docId: string; similarity: number }> {
     const queryNorm = l2norm(embedding);
     if (queryNorm === 0) return [];
@@ -46,7 +53,7 @@ export class MemoryVectorStore implements VectorStore {
       if (stored.norm === 0) continue;
       const dot = stored.values.reduce(
         (sum, v, i) => sum + v * (embedding[i] ?? 0),
-        0
+        0,
       );
       const similarity = dot / (queryNorm * stored.norm);
       results.push({ docId, similarity });
@@ -64,7 +71,7 @@ function l2norm(vector: readonly number[]): number {
 
 export interface HybridHit extends RetrievalHit {
   /** Which retrieval systems returned this document. */
-  sources: Array<'bm25' | 'vector'>;
+  sources: Array<"bm25" | "vector">;
 }
 
 export interface HybridEngineOptions {
@@ -80,19 +87,22 @@ export interface HybridEngineOptions {
 export function fuseHybrid(
   bm25Hits: readonly RetrievalHit[],
   vectorHits: ReadonlyArray<{ docId: string; similarity: number }>,
-  documentsById: ReadonlyMap<string, RetrievalHit['document']>,
-  options: HybridEngineOptions = {}
+  documentsById: ReadonlyMap<string, RetrievalHit["document"]>,
+  options: HybridEngineOptions = {},
 ): HybridHit[] {
   const k = options.rrfK ?? 60;
-  const fused = new Map<string, { rrf: number; sources: Set<'bm25' | 'vector'>; bm25Hit?: RetrievalHit }>();
+  const fused = new Map<
+    string,
+    { rrf: number; sources: Set<"bm25" | "vector">; bm25Hit?: RetrievalHit }
+  >();
 
   bm25Hits.forEach((hit, rank) => {
     const entry = fused.get(hit.document.id) ?? {
       rrf: 0,
-      sources: new Set<'bm25' | 'vector'>(),
+      sources: new Set<"bm25" | "vector">(),
     };
     entry.rrf += 1 / (k + rank + 1);
-    entry.sources.add('bm25');
+    entry.sources.add("bm25");
     entry.bm25Hit = hit;
     fused.set(hit.document.id, entry);
   });
@@ -100,10 +110,10 @@ export function fuseHybrid(
   vectorHits.forEach((hit, rank) => {
     const entry = fused.get(hit.docId) ?? {
       rrf: 0,
-      sources: new Set<'bm25' | 'vector'>(),
+      sources: new Set<"bm25" | "vector">(),
     };
     entry.rrf += 1 / (k + rank + 1);
-    entry.sources.add('vector');
+    entry.sources.add("vector");
     fused.set(hit.docId, entry);
   });
 
@@ -120,7 +130,8 @@ export function fuseHybrid(
       }
       // Vector-only hit: look the document up by id.
       const doc = documentsById.get(docId);
-      if (!doc) throw new Error(`fused hit references unknown document ${docId}`);
+      if (!doc)
+        throw new Error(`fused hit references unknown document ${docId}`);
       return {
         document: doc,
         bm25Score: 0,
@@ -135,7 +146,7 @@ export function fuseHybrid(
 /** Convenience: RRF fuse two ranked lists of doc ids. */
 export function reciprocalRankFusion(
   lists: ReadonlyArray<readonly string[]>,
-  k = 60
+  k = 60,
 ): Array<{ docId: string; score: number }> {
   const scores = new Map<string, number>();
   for (const list of lists) {

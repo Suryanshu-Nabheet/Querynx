@@ -5,13 +5,13 @@
  * worker service serves dedicated fleets.
  */
 
-import type { JobQueue, Job } from '@querynx/queue';
-import type { PersistentIndex } from './persistence.js';
-import { fetchUrl } from '@querynx/fetcher';
-import { extractDocument } from '@querynx/extractor';
-import { CrawlEngine } from '@querynx/crawler';
-import { ResearchEngine, type ResearchMode } from '@querynx/research';
-import type { SearchOrchestrator } from '@querynx/providers';
+import type { JobQueue, Job } from "@querynx/queue";
+import type { PersistentIndex } from "./persistence.js";
+import { fetchUrl } from "@querynx/fetcher";
+import { extractDocument } from "@querynx/extractor";
+import { CrawlEngine } from "@querynx/crawler";
+import { ResearchEngine, type ResearchMode } from "@querynx/research";
+import type { SearchOrchestrator } from "@querynx/providers";
 
 export interface ApiJobHandlers {
   queue: JobQueue;
@@ -19,17 +19,27 @@ export interface ApiJobHandlers {
   orchestrator?: SearchOrchestrator;
 }
 
-const USER_AGENT = 'QuerynxBot/0.1 (+https://github.com/Suryanshu-Nabheet/Querynx)';
+const USER_AGENT =
+  "QuerynxBot/0.1 (+https://github.com/Suryanshu-Nabheet/Querynx)";
 
 export function registerApiJobHandlers(deps: ApiJobHandlers): void {
   const { queue, index, orchestrator } = deps;
 
-  queue.handle('index', async (payload, signal) => {
-    const url = String(payload['url'] ?? '');
-    const collection = String(payload['collection'] ?? 'default');
-    const fetched = await fetchUrl(url, { timeoutMs: 20_000, maxBytes: 5 * 1024 * 1024, signal });
-    if (fetched.statusCode !== 200) throw new Error(`HTTP ${fetched.statusCode}`);
-    const document = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+  queue.handle("index", async (payload, signal) => {
+    const url = String(payload["url"] ?? "");
+    const collection = String(payload["collection"] ?? "default");
+    const fetched = await fetchUrl(url, {
+      timeoutMs: 20_000,
+      maxBytes: 5 * 1024 * 1024,
+      signal,
+    });
+    if (fetched.statusCode !== 200)
+      throw new Error(`HTTP ${fetched.statusCode}`);
+    const document = extractDocument(
+      fetched.body,
+      fetched.url,
+      fetched.statusCode,
+    );
     const stored = await index.index({
       url: document.url,
       title: document.title ?? document.url,
@@ -42,20 +52,20 @@ export function registerApiJobHandlers(deps: ApiJobHandlers): void {
     return { id: stored.id, url: stored.url, title: stored.title };
   });
 
-  queue.handle('crawl', async (payload, signal) => {
-    const seeds = payload['seeds'] as string[];
-    const collection = String(payload['collection'] ?? 'default');
+  queue.handle("crawl", async (payload, signal) => {
+    const seeds = payload["seeds"] as string[];
+    const collection = String(payload["collection"] ?? "default");
     const engine = new CrawlEngine();
     const report = await engine.crawl(
       {
         seeds,
-        maxDepth: Number(payload['maxDepth'] ?? 1),
-        maxPages: Number(payload['maxPages'] ?? 20),
+        maxDepth: Number(payload["maxDepth"] ?? 1),
+        maxPages: Number(payload["maxPages"] ?? 20),
         respectRobots: true,
         perDomainDelayMs: 1_000,
         dedupeByContent: true,
       },
-      { userAgent: USER_AGENT, signal, maxConcurrency: 3 }
+      { userAgent: USER_AGENT, signal, maxConcurrency: 3 },
     );
     let ingested = 0;
     for (const page of report.pages) {
@@ -78,21 +88,39 @@ export function registerApiJobHandlers(deps: ApiJobHandlers): void {
     };
   });
 
-  queue.handle('research', async (payload, signal) => {
-    if (!orchestrator) throw new Error('research jobs require search providers');
+  queue.handle("research", async (payload, signal) => {
+    if (!orchestrator)
+      throw new Error("research jobs require search providers");
     const engine = new ResearchEngine();
-    const report = await engine.research(String(payload['objective']), {
-      mode: (payload['mode'] as ResearchMode | undefined) ?? 'standard',
+    const report = await engine.research(String(payload["objective"]), {
+      mode: (payload["mode"] as ResearchMode | undefined) ?? "standard",
       search: async (queryText, maxResults) => {
-        const r = await orchestrator.search({ query: queryText, maxResults, freshness: 'any', category: 'web' });
+        const r = await orchestrator.search({
+          query: queryText,
+          maxResults,
+          freshness: "any",
+          category: "web",
+        });
         return r.results;
       },
       extractContent: async (url) => {
         try {
-          const fetched = await fetchUrl(url, { timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024, signal });
+          const fetched = await fetchUrl(url, {
+            timeoutMs: 10_000,
+            maxBytes: 2 * 1024 * 1024,
+            signal,
+          });
           if (fetched.statusCode !== 200) return null;
-          const doc = extractDocument(fetched.body, fetched.url, fetched.statusCode);
-          return { title: doc.title ?? url, content: doc.content, publishedAt: doc.metadata?.publishedAt };
+          const doc = extractDocument(
+            fetched.body,
+            fetched.url,
+            fetched.statusCode,
+          );
+          return {
+            title: doc.title ?? url,
+            content: doc.content,
+            publishedAt: doc.metadata?.publishedAt,
+          };
         } catch {
           return null;
         }

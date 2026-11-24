@@ -11,9 +11,9 @@
  * - Without DATABASE_URL the memory engine stands alone (dev mode).
  */
 
-import type { MemorySearchEngine, IndexedDocument } from '@querynx/indexer';
-import type { DocumentStore } from '@querynx/database';
-import { metrics } from '@querynx/observability';
+import type { MemorySearchEngine, IndexedDocument } from "@querynx/indexer";
+import type { DocumentStore } from "@querynx/database";
+import { metrics } from "@querynx/observability";
 
 export interface PersistenceOptions {
   documentStore?: DocumentStore;
@@ -63,7 +63,7 @@ export class PersistentIndex {
       cursor = batch.at(-1)!.id;
       if (batch.length < 500) break;
     }
-    metrics.setGauge('persistence_rehydrated_documents', total);
+    metrics.setGauge("persistence_rehydrated_documents", total);
     return total;
   }
 
@@ -71,7 +71,9 @@ export class PersistentIndex {
    * Index a document: memory always, Postgres when configured.
    * Mirrored writes log + count failures instead of failing requests.
    */
-  async index(document: Omit<IndexedDocument, 'id' | 'indexedAt'>): Promise<IndexedDocument> {
+  async index(
+    document: Omit<IndexedDocument, "id" | "indexedAt">,
+  ): Promise<IndexedDocument> {
     const stored = this.memory.index(document);
     if (this.store) {
       try {
@@ -84,11 +86,11 @@ export class PersistentIndex {
           publishedAt: stored.publishedAt ?? null,
           metadata: stored.metadata ?? null,
         });
-        metrics.inc('persistence_upserts');
+        metrics.inc("persistence_upserts");
       } catch (err) {
-        metrics.inc('persistence_errors');
+        metrics.inc("persistence_errors");
         console.warn(
-          `[persistence] upsert failed for ${stored.url}: ${err instanceof Error ? err.message : String(err)}`
+          `[persistence] upsert failed for ${stored.url}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -96,12 +98,12 @@ export class PersistentIndex {
   }
 
   /** Corpus stats (live memory engine). */
-  stats(): ReturnType<MemorySearchEngine['stats']> {
+  stats(): ReturnType<MemorySearchEngine["stats"]> {
     return this.memory.stats();
   }
 
   /** BM25 search stays fully in-memory. */
-  search(query: Parameters<MemorySearchEngine['search']>[0]) {
+  search(query: Parameters<MemorySearchEngine["search"]>[0]) {
     return this.memory.search(query);
   }
 

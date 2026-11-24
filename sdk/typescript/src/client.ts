@@ -10,8 +10,12 @@ import type {
   SearchResponse,
   ExtractResponse,
   ProviderHealth,
-} from '@querynx/types';
-import type { ResearchReport, ResearchEvent, ResearchMode } from '@querynx/research';
+} from "@querynx/types";
+import type {
+  ResearchReport,
+  ResearchEvent,
+  ResearchMode,
+} from "@querynx/research";
 
 export interface QuerynxClientOptions {
   /** Base URL of the Querynx API, e.g. "http://localhost:3001". */
@@ -29,10 +33,10 @@ export class QuerynxError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
-    readonly requestId?: string
+    readonly requestId?: string,
   ) {
     super(message);
-    this.name = 'QuerynxError';
+    this.name = "QuerynxError";
   }
 }
 
@@ -42,13 +46,13 @@ export interface SearchOptions {
   excludeDomains?: string[];
   language?: string;
   region?: string;
-  freshness?: 'any' | 'day' | 'week' | 'month' | 'year';
-  category?: 'web' | 'news' | 'academic' | 'code' | 'docs';
+  freshness?: "any" | "day" | "week" | "month" | "year";
+  category?: "web" | "news" | "academic" | "code" | "docs";
   signal?: AbortSignal;
 }
 
 export interface ExtractOptions {
-  format?: 'markdown' | 'html' | 'text';
+  format?: "markdown" | "html" | "text";
   includeLinks?: boolean;
   includeTables?: boolean;
   includeMetadata?: boolean;
@@ -71,70 +75,89 @@ export class QuerynxClient {
   private readonly maxRetries: number;
 
   constructor(options: QuerynxClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.apiKey = options.apiKey;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxRetries = options.maxRetries ?? 2;
   }
 
   /** Execute a federated web search. */
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResponse> {
+  async search(
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchResponse> {
     const body: Record<string, unknown> = { query };
-    if (options.maxResults !== undefined) body['maxResults'] = options.maxResults;
-    if (options.includeDomains) body['includeDomains'] = options.includeDomains;
-    if (options.excludeDomains) body['excludeDomains'] = options.excludeDomains;
-    if (options.language) body['language'] = options.language;
-    if (options.region) body['region'] = options.region;
-    if (options.freshness) body['freshness'] = options.freshness;
-    if (options.category) body['category'] = options.category;
+    if (options.maxResults !== undefined)
+      body["maxResults"] = options.maxResults;
+    if (options.includeDomains) body["includeDomains"] = options.includeDomains;
+    if (options.excludeDomains) body["excludeDomains"] = options.excludeDomains;
+    if (options.language) body["language"] = options.language;
+    if (options.region) body["region"] = options.region;
+    if (options.freshness) body["freshness"] = options.freshness;
+    if (options.category) body["category"] = options.category;
 
-    return this.request<SearchResponse>('/v1/search', {
-      method: 'POST',
+    return this.request<SearchResponse>("/v1/search", {
+      method: "POST",
       body,
       signal: options.signal,
     });
   }
 
   /** Run several searches in one call. */
-  async searchBatch(queries: string[], maxResults?: number): Promise<{
-    responses: Array<{ ok: boolean; query?: string; error?: string } & Partial<SearchResponse>>;
+  async searchBatch(
+    queries: string[],
+    maxResults?: number,
+  ): Promise<{
+    responses: Array<
+      { ok: boolean; query?: string; error?: string } & Partial<SearchResponse>
+    >;
     generatedAt: string;
   }> {
     const body: Record<string, unknown> = { queries };
-    if (maxResults !== undefined) body['maxResults'] = maxResults;
-    return this.request('/v1/search/batch', { method: 'POST', body });
+    if (maxResults !== undefined) body["maxResults"] = maxResults;
+    return this.request("/v1/search/batch", { method: "POST", body });
   }
 
   /** Fetch structured content from URLs. */
-  async extract(urls: string[], options: ExtractOptions = {}): Promise<ExtractResponse> {
+  async extract(
+    urls: string[],
+    options: ExtractOptions = {},
+  ): Promise<ExtractResponse> {
     const body: Record<string, unknown> = { urls };
-    if (options.format) body['format'] = options.format;
-    if (options.includeLinks !== undefined) body['includeLinks'] = options.includeLinks;
-    if (options.includeTables !== undefined) body['includeTables'] = options.includeTables;
-    if (options.includeMetadata !== undefined) body['includeMetadata'] = options.includeMetadata;
-    if (options.timeoutMs !== undefined) body['timeoutMs'] = options.timeoutMs;
+    if (options.format) body["format"] = options.format;
+    if (options.includeLinks !== undefined)
+      body["includeLinks"] = options.includeLinks;
+    if (options.includeTables !== undefined)
+      body["includeTables"] = options.includeTables;
+    if (options.includeMetadata !== undefined)
+      body["includeMetadata"] = options.includeMetadata;
+    if (options.timeoutMs !== undefined) body["timeoutMs"] = options.timeoutMs;
 
-    return this.request<ExtractResponse>('/v1/extract', {
-      method: 'POST',
+    return this.request<ExtractResponse>("/v1/extract", {
+      method: "POST",
       body,
       signal: options.signal,
     });
   }
 
   /** Run a bounded research job. */
-  async research(objective: string, options: ResearchOptions = {}): Promise<{
+  async research(
+    objective: string,
+    options: ResearchOptions = {},
+  ): Promise<{
     report: ResearchReport;
     events: ResearchEvent[];
     requestId: string;
   }> {
     const body: Record<string, unknown> = { objective };
-    if (options.mode) body['mode'] = options.mode;
-    if (options.maxQueries !== undefined) body['maxQueries'] = options.maxQueries;
-    if (options.maxPages !== undefined) body['maxPages'] = options.maxPages;
-    if (options.timeMs !== undefined) body['timeMs'] = options.timeMs;
+    if (options.mode) body["mode"] = options.mode;
+    if (options.maxQueries !== undefined)
+      body["maxQueries"] = options.maxQueries;
+    if (options.maxPages !== undefined) body["maxPages"] = options.maxPages;
+    if (options.timeMs !== undefined) body["timeMs"] = options.timeMs;
 
-    return this.request('/v1/research', {
-      method: 'POST',
+    return this.request("/v1/research", {
+      method: "POST",
       body,
       signal: options.signal,
     });
@@ -142,28 +165,30 @@ export class QuerynxClient {
 
   /** Provider health snapshot. */
   async providers(): Promise<{ providers: ProviderHealth[] }> {
-    return this.request('/v1/providers', { method: 'GET' });
+    return this.request("/v1/providers", { method: "GET" });
   }
 
   /** Liveness probe. */
   async health(): Promise<{ status: string; version: string }> {
-    return this.request('/health', { method: 'GET' });
+    return this.request("/health", { method: "GET" });
   }
 
   private async request<T>(
     path: string,
-    init: { method: string; body?: unknown; signal?: AbortSignal }
+    init: { method: string; body?: unknown; signal?: AbortSignal },
   ): Promise<T> {
     let lastError: unknown;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       const onOuterAbort = () => controller.abort();
-      init.signal?.addEventListener('abort', onOuterAbort, { once: true });
+      init.signal?.addEventListener("abort", onOuterAbort, { once: true });
 
       try {
-        const headers: Record<string, string> = { 'content-type': 'application/json' };
-        if (this.apiKey) headers['x-api-key'] = this.apiKey;
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+        };
+        if (this.apiKey) headers["x-api-key"] = this.apiKey;
 
         const response = await fetch(`${this.baseUrl}${path}`, {
           method: init.method,
@@ -184,7 +209,7 @@ export class QuerynxClient {
             errShape.error?.message ?? `HTTP ${response.status}`,
             response.status,
             errShape.error?.code,
-            errShape.requestId
+            errShape.requestId,
           );
           // Retry only transient failures.
           if (response.status >= 500 && attempt < this.maxRetries) {
@@ -199,22 +224,22 @@ export class QuerynxClient {
       } catch (err) {
         if (err instanceof QuerynxError) throw err;
         lastError = err;
-        if (attempt < this.maxRetries && !(init.signal?.aborted)) {
+        if (attempt < this.maxRetries && !init.signal?.aborted) {
           await delay(300 * 2 ** attempt + Math.random() * 200);
           continue;
         }
         throw new QuerynxError(
-          err instanceof Error ? err.message : 'request failed',
-          0
+          err instanceof Error ? err.message : "request failed",
+          0,
         );
       } finally {
         clearTimeout(timer);
-        init.signal?.removeEventListener('abort', onOuterAbort);
+        init.signal?.removeEventListener("abort", onOuterAbort);
       }
     }
     throw lastError instanceof Error
       ? new QuerynxError(lastError.message, 0)
-      : new QuerynxError('request failed', 0);
+      : new QuerynxError("request failed", 0);
   }
 }
 

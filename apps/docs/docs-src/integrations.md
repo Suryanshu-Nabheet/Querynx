@@ -25,26 +25,28 @@ and MCP-compatible assistants.
 
 Tools exposed (agent-oriented descriptions, zod-validated inputs):
 
-| Tool | Use for |
-|---|---|
-| querynx_search | Current information, fact lookup, source discovery |
-| querynx_extract | Full text of a specific page |
-| querynx_research | Multi-source synthesis with citations and gaps |
-| querynx_providers | Diagnose degraded search (health/circuit state) |
+| Tool              | Use for                                            |
+| ----------------- | -------------------------------------------------- |
+| querynx_search    | Current information, fact lookup, source discovery |
+| querynx_extract   | Full text of a specific page                       |
+| querynx_research  | Multi-source synthesis with citations and gaps     |
+| querynx_providers | Diagnose degraded search (health/circuit state)    |
 
 ## TypeScript SDK
 
 ```ts
-import { QuerynxClient } from '@querynx/sdk';
+import { QuerynxClient } from "@querynx/sdk";
 
 const client = new QuerynxClient({
-  baseUrl: 'http://localhost:3001',
-  apiKey: 'your-key',
+  baseUrl: "http://localhost:3001",
+  apiKey: "your-key",
 });
 
-const search = await client.search('postgres mvcc', { maxResults: 5 });
-const page = await client.extract(['https://example.com/article']);
-const { report } = await client.research('how does mvcc work', { mode: 'fast' });
+const search = await client.search("postgres mvcc", { maxResults: 5 });
+const page = await client.extract(["https://example.com/article"]);
+const { report } = await client.research("how does mvcc work", {
+  mode: "fast",
+});
 ```
 
 Retries on 5xx with exponential backoff; 4xx fail fast with typed
@@ -80,9 +82,9 @@ Environment: `QUERYNX_URL`, `QUERYNX_API_KEY`.
 ## LangChain
 
 ```ts
-import { createQuerynxTools } from '@querynx/langchain';
+import { createQuerynxTools } from "@querynx/langchain";
 
-const tools = createQuerynxTools({ baseUrl: 'http://localhost:3001' });
+const tools = createQuerynxTools({ baseUrl: "http://localhost:3001" });
 // -> [QuerynxSearchTool, QuerynxExtractTool, QuerynxResearchTool]
 // StructuredTool subclasses: drop into any LangChain agent.
 ```
@@ -90,9 +92,9 @@ const tools = createQuerynxTools({ baseUrl: 'http://localhost:3001' });
 ## LlamaIndex
 
 ```ts
-import { toQueryEngineTools } from '@querynx/llamaindex';
+import { toQueryEngineTools } from "@querynx/llamaindex";
 
-const tools = await toQueryEngineTools({ baseUrl: 'http://localhost:3001' });
+const tools = await toQueryEngineTools({ baseUrl: "http://localhost:3001" });
 // FunctionTool objects when llamaindex is installed; plain callables
 // with identical contracts otherwise.
 ```

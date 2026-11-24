@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Dashboard API access.
@@ -10,28 +10,34 @@
  */
 
 export function getStoredConnection(): { url: string; apiKey?: string } {
-  if (typeof window === 'undefined') {
-    return { url: process.env['NEXT_PUBLIC_QUERYNX_URL'] ?? 'http://127.0.0.1:3001' };
+  if (typeof window === "undefined") {
+    return {
+      url: process.env["NEXT_PUBLIC_QUERYNX_URL"] ?? "http://127.0.0.1:3001",
+    };
   }
   const url =
-    localStorage.getItem('querynx.url') ??
-    process.env['NEXT_PUBLIC_QUERYNX_URL'] ??
-    'http://127.0.0.1:3001';
-  const apiKey = localStorage.getItem('querynx.key') ?? undefined;
+    localStorage.getItem("querynx.url") ??
+    process.env["NEXT_PUBLIC_QUERYNX_URL"] ??
+    "http://127.0.0.1:3001";
+  const apiKey = localStorage.getItem("querynx.key") ?? undefined;
   return { url, apiKey };
 }
 
 export function storeConnection(url: string, apiKey?: string): void {
-  localStorage.setItem('querynx.url', url);
-  if (apiKey) localStorage.setItem('querynx.key', apiKey);
-  else localStorage.removeItem('querynx.key');
+  localStorage.setItem("querynx.url", url);
+  if (apiKey) localStorage.setItem("querynx.key", apiKey);
+  else localStorage.removeItem("querynx.key");
 }
 
 /** Throw typed errors mirroring the API error envelope. */
 export class DashboardApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
     super(message);
-    this.name = 'DashboardApiError';
+    this.name = "DashboardApiError";
   }
 }
 
@@ -40,8 +46,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${url}${path}`, {
     ...init,
     headers: {
-      'content-type': 'application/json',
-      ...(apiKey ? { 'x-api-key': apiKey } : {}),
+      "content-type": "application/json",
+      ...(apiKey ? { "x-api-key": apiKey } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -49,7 +55,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     let message = `HTTP ${response.status}`;
     let code: string | undefined;
     try {
-      const body = (await response.json()) as { error?: { message?: string; code?: string } };
+      const body = (await response.json()) as {
+        error?: { message?: string; code?: string };
+      };
       message = body.error?.message ?? message;
       code = body.error?.code;
     } catch {
@@ -62,8 +70,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const apiGet = <T>(path: string) => api<T>(path);
 export const apiPost = <T>(path: string, body: unknown) =>
-  api<T>(path, { method: 'POST', body: JSON.stringify(body) });
-export const apiDelete = <T>(path: string) => api<T>(path, { method: 'DELETE' });
+  api<T>(path, { method: "POST", body: JSON.stringify(body) });
+export const apiDelete = <T>(path: string) =>
+  api<T>(path, { method: "DELETE" });
 
 // ---- Typed response views used by pages ----------------------------
 
@@ -99,7 +108,12 @@ export interface ExtractItemView {
 export interface ResearchReportView {
   report: {
     findings: string;
-    evidence: Array<{ url: string; title: string; passage: string; relevance: number }>;
+    evidence: Array<{
+      url: string;
+      title: string;
+      passage: string;
+      relevance: number;
+    }>;
     gaps: Array<{ question: string }>;
     usage: { queries: number; pagesFetched: number; elapsedMs: number };
     termination: string;
@@ -117,7 +131,12 @@ export interface ProvidersResponseView {
 }
 
 export interface IndexStatsView {
-  stats: { documents: number; collections: number; uniqueTerms: number; contentChars: number };
+  stats: {
+    documents: number;
+    collections: number;
+    uniqueTerms: number;
+    contentChars: number;
+  };
 }
 
 export interface SemanticResponseView {

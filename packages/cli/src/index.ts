@@ -4,18 +4,20 @@
  * tokenization) to keep the CLI zero-install beyond the workspace.
  */
 
-import { QuerynxClient, QuerynxError } from '@querynx/sdk';
+import { QuerynxClient, QuerynxError } from "@querynx/sdk";
 
 export interface CliOptions {
   baseUrl: string;
   apiKey?: string;
 }
 
-export function clientFromEnv(overrides: Partial<CliOptions> = {}): QuerynxClient {
+export function clientFromEnv(
+  overrides: Partial<CliOptions> = {},
+): QuerynxClient {
   const baseUrl =
-    overrides.baseUrl ?? process.env['QUERYNX_URL'] ?? 'http://127.0.0.1:3001';
+    overrides.baseUrl ?? process.env["QUERYNX_URL"] ?? "http://127.0.0.1:3001";
   const apiKey =
-    overrides.apiKey ?? process.env['QUERYNX_API_KEY'] ?? undefined;
+    overrides.apiKey ?? process.env["QUERYNX_API_KEY"] ?? undefined;
   return new QuerynxClient({ baseUrl, apiKey });
 }
 
@@ -31,12 +33,12 @@ export function parseArgs(argv: readonly string[]): {
 
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i]!;
-    if (token.startsWith('--')) {
+    if (token.startsWith("--")) {
       const body = token.slice(2);
-      const eq = body.indexOf('=');
+      const eq = body.indexOf("=");
       if (eq >= 0) {
         options[body.slice(0, eq)] = body.slice(eq + 1);
-      } else if (i + 1 < argv.length && !argv[i + 1]!.startsWith('--')) {
+      } else if (i + 1 < argv.length && !argv[i + 1]!.startsWith("--")) {
         options[body] = argv[++i]!;
       } else {
         flags.add(body);
@@ -77,66 +79,78 @@ export async function runCli(argv: readonly string[]): Promise<CliOutput> {
 
   try {
     const client = clientFromEnv({
-      baseUrl: options['url'],
-      apiKey: options['key'],
+      baseUrl: options["url"],
+      apiKey: options["key"],
     });
 
     switch (command) {
-      case 'search': {
-        const query = rest.join(' ');
-        if (!query) return usage('search requires a query');
+      case "search": {
+        const query = rest.join(" ");
+        if (!query) return usage("search requires a query");
         const response = await client.search(query, {
-          maxResults: Number(options['max'] ?? 10),
-          freshness: (options['freshness'] as 'day' | undefined) ?? undefined,
+          maxResults: Number(options["max"] ?? 10),
+          freshness: (options["freshness"] as "day" | undefined) ?? undefined,
         });
-        return ok(formatResults(response.results.map((r) => ({
-          title: r.title, url: r.url, snippet: r.snippet,
-        }))));
+        return ok(
+          formatResults(
+            response.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+            })),
+          ),
+        );
       }
 
-      case 'extract': {
-        if (rest.length === 0) return usage('extract requires at least one url');
+      case "extract": {
+        if (rest.length === 0)
+          return usage("extract requires at least one url");
         const response = await client.extract(rest);
         const lines: string[] = [];
         for (const item of response.results) {
           if (item.ok && item.document) {
             lines.push(`# ${item.document.title ?? item.url}`);
-            lines.push(item.document.content.slice(0, Number(options['chars'] ?? 4000)));
-            lines.push('');
+            lines.push(
+              item.document.content.slice(0, Number(options["chars"] ?? 4000)),
+            );
+            lines.push("");
           } else {
             lines.push(`FAILED ${item.url}: ${item.error}`);
           }
         }
-        return ok(lines.join('\n'));
+        return ok(lines.join("\n"));
       }
 
-      case 'research': {
-        const objective = rest.join(' ');
-        if (objective.length < 3) return usage('research requires an objective');
+      case "research": {
+        const objective = rest.join(" ");
+        if (objective.length < 3)
+          return usage("research requires an objective");
         const { report } = await client.research(objective, {
-          mode: (options['mode'] as 'fast' | undefined) ?? undefined,
+          mode: (options["mode"] as "fast" | undefined) ?? undefined,
         });
-        const parts = [report.findings, '', 'Sources:'];
-        for (const e of report.evidence.slice(0, 10)) parts.push(`- ${e.title}: ${e.url}`);
+        const parts = [report.findings, "", "Sources:"];
+        for (const e of report.evidence.slice(0, 10))
+          parts.push(`- ${e.title}: ${e.url}`);
         if (report.gaps.length > 0) {
-          parts.push('', 'Unresolved:');
+          parts.push("", "Unresolved:");
           for (const g of report.gaps) parts.push(`- ${g.question}`);
         }
-        parts.push('', `termination: ${report.termination}`);
-        return ok(parts.join('\n'));
+        parts.push("", `termination: ${report.termination}`);
+        return ok(parts.join("\n"));
       }
 
-      case 'status': {
+      case "status": {
         const health = await client.health();
         return ok(JSON.stringify(health, null, 2));
       }
 
-      case 'providers': {
+      case "providers": {
         const { providers } = await client.providers();
-        const rows = providers.map((p) =>
-          `${p.configured ? '✓' : '×'} ${p.name}  state=${p.state}  p50=${p.medianLatencyMs}ms  success=${(p.successRate * 100).toFixed(0)}%`
+        const rows = providers.map(
+          (p) =>
+            `${p.configured ? "✓" : "×"} ${p.name}  state=${p.state}  p50=${p.medianLatencyMs}ms  success=${(p.successRate * 100).toFixed(0)}%`,
         );
-        return ok(rows.join('\n'));
+        return ok(rows.join("\n"));
       }
 
       default:
@@ -144,13 +158,22 @@ export async function runCli(argv: readonly string[]): Promise<CliOutput> {
     }
   } catch (err) {
     if (err instanceof QuerynxError) {
-      return { exitCode: err.status || 1, text: `error: ${err.message} (${err.code ?? 'UNKNOWN'})` };
+      return {
+        exitCode: err.status || 1,
+        text: `error: ${err.message} (${err.code ?? "UNKNOWN"})`,
+      };
     }
-    return { exitCode: 1, text: `error: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      exitCode: 1,
+      text: `error: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 
   function usage(message: string): CliOutput {
-    return { exitCode: 2, text: `${message}\n\n${flags.has('help') ? '' : ''}${USAGE}` };
+    return {
+      exitCode: 2,
+      text: `${message}\n\n${flags.has("help") ? "" : ""}${USAGE}`,
+    };
   }
 }
 
@@ -158,9 +181,14 @@ function ok(text: string): CliOutput {
   return { exitCode: 0, text };
 }
 
-function formatResults(results: Array<{ title: string; url: string; snippet: string }>): string {
-  if (results.length === 0) return 'No results found.';
+function formatResults(
+  results: Array<{ title: string; url: string; snippet: string }>,
+): string {
+  if (results.length === 0) return "No results found.";
   return results
-    .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet.slice(0, 160)}`)
-    .join('\n\n');
+    .map(
+      (r, i) =>
+        `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet.slice(0, 160)}`,
+    )
+    .join("\n\n");
 }

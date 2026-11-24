@@ -11,12 +11,22 @@
  * in Querynx can dial a private network by accident.
  */
 
-import { Agent, request as undiciRequest, Dispatcher } from 'undici';
-import { isSafeOutboundUrl } from '@querynx/shared';
-import { validatingLookup, DnsValidationError, isPrivateNetworksAllowed } from './dns.js';
+import { Agent, request as undiciRequest, Dispatcher } from "undici";
+import { isSafeOutboundUrl } from "@querynx/shared";
+import {
+  validatingLookup,
+  DnsValidationError,
+  isPrivateNetworksAllowed,
+} from "./dns.js";
 
-export { DnsValidationError } from './dns.js';
-export { isPublicIp, isPublicIpv4, isPublicIpv6, setPrivateNetworkPolicy, isPrivateNetworksAllowed } from './dns.js';
+export { DnsValidationError } from "./dns.js";
+export {
+  isPublicIp,
+  isPublicIpv4,
+  isPublicIpv6,
+  setPrivateNetworkPolicy,
+  isPrivateNetworksAllowed,
+} from "./dns.js";
 
 export interface FetcherOptions {
   /** Per-request timeout (default 15s). */
@@ -49,7 +59,8 @@ export interface FetchResult {
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MAX_REDIRECTS = 5;
-const DEFAULT_UA = 'QuerynxBot/0.1 (+https://github.com/Suryanshu-Nabheet/Querynx)';
+const DEFAULT_UA =
+  "QuerynxBot/0.1 (+https://github.com/Suryanshu-Nabheet/Querynx)";
 
 /**
  * Shared dispatcher with validating DNS lookup. One pool per process is
@@ -77,7 +88,7 @@ function getAgent(): Agent {
 class RedirectLoopError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'RedirectLoopError';
+    this.name = "RedirectLoopError";
   }
 }
 
@@ -88,7 +99,10 @@ class RedirectLoopError extends Error {
  * @throws DnsValidationError when the host resolves to private space.
  * @throws RedirectLoopError when redirect limits are exceeded.
  */
-export async function fetchUrl(url: string, options: FetcherOptions = {}): Promise<FetchResult> {
+export async function fetchUrl(
+  url: string,
+  options: FetcherOptions = {},
+): Promise<FetchResult> {
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxBytes = DEFAULT_MAX_BYTES,
@@ -103,34 +117,40 @@ export async function fetchUrl(url: string, options: FetcherOptions = {}): Promi
   let truncated = false;
 
   for (;;) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     if (!isSafeOutboundUrl(currentUrl) && !isPrivateNetworksAllowed()) {
-      throw new DnsValidationError(currentUrl, 'URL rejected by outbound safety checks');
+      throw new DnsValidationError(
+        currentUrl,
+        "URL rejected by outbound safety checks",
+      );
     }
 
     let response: Dispatcher.ResponseData;
     try {
       response = await undiciRequest(currentUrl, {
         dispatcher: getAgent(),
-        method: 'GET',
+        method: "GET",
         headersTimeout: timeoutMs,
         bodyTimeout: timeoutMs,
         headers: {
-          'user-agent': userAgent,
-          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
-          'accept-language': 'en;q=0.9,*;q=0.5',
+          "user-agent": userAgent,
+          accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
+          "accept-language": "en;q=0.9,*;q=0.5",
           ...headers,
         },
       }).catch((err: unknown) => {
         if (err instanceof Error && /aborted/i.test(err.message)) {
-          throw new DOMException('Aborted', 'AbortError');
+          throw new DOMException("Aborted", "AbortError");
         }
         throw err;
       });
     } catch (err) {
       if (err instanceof DnsValidationError) throw err;
       if (err instanceof DOMException) throw err;
-      throw new Error(`Fetch failed for ${currentUrl}: ${(err as Error).message}`);
+      throw new Error(
+        `Fetch failed for ${currentUrl}: ${(err as Error).message}`,
+      );
     }
 
     const status = response.statusCode;
@@ -138,11 +158,15 @@ export async function fetchUrl(url: string, options: FetcherOptions = {}): Promi
     // Handle redirects manually so every hop is re-validated.
     if (status >= 300 && status < 400) {
       const location = response.headers.location;
-      if (typeof location !== 'string' || location === '') {
-        throw new RedirectLoopError(`Redirect ${status} without Location header from ${currentUrl}`);
+      if (typeof location !== "string" || location === "") {
+        throw new RedirectLoopError(
+          `Redirect ${status} without Location header from ${currentUrl}`,
+        );
       }
       if (redirects >= maxRedirects) {
-        throw new RedirectLoopError(`Exceeded ${maxRedirects} redirects starting at ${url}`);
+        throw new RedirectLoopError(
+          `Exceeded ${maxRedirects} redirects starting at ${url}`,
+        );
       }
       const next = new URL(location, currentUrl).toString();
       // Drain the body before following.
@@ -156,7 +180,7 @@ export async function fetchUrl(url: string, options: FetcherOptions = {}): Promi
     }
 
     // Stream the body with a hard byte cap.
-    const declaredLength = Number(response.headers['content-length'] ?? 0);
+    const declaredLength = Number(response.headers["content-length"] ?? 0);
     if (declaredLength > maxBytes) {
       await response.body.dump();
       truncated = true;
@@ -164,7 +188,7 @@ export async function fetchUrl(url: string, options: FetcherOptions = {}): Promi
         url: currentUrl,
         statusCode: status,
         headers: response.headers as Record<string, string>,
-        body: '',
+        body: "",
         truncated,
         redirects,
       };
@@ -191,7 +215,7 @@ export async function fetchUrl(url: string, options: FetcherOptions = {}): Promi
       url: currentUrl,
       statusCode: status,
       headers: response.headers as Record<string, string>,
-      body: truncated ? '' : Buffer.concat(chunks).toString('utf-8'),
+      body: truncated ? "" : Buffer.concat(chunks).toString("utf-8"),
       truncated,
       redirects,
     };

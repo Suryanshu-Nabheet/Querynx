@@ -36,11 +36,13 @@ compose packages.
 ## Decisions
 
 ### D1 — Provider-normalized contracts (`packages/types`)
+
 Every search provider normalizes to `SearchResult` at the adapter boundary.
 Downstream (merge, rank, cache, index) never sees provider-specific shapes.
 This lets providers be added or removed without touching orchestration.
 
 ### D2 — SSRF defense at the resolver, not just the URL parser
+
 `packages/fetcher` resolves DNS through a validating lookup that filters
 private/reserved/loopback addresses and pins the connection to the validated
 result. Redirects are followed manually, re-validating each hop — so a
@@ -51,6 +53,7 @@ never settable per request, so API consumers cannot probe internal
 networks.
 
 ### D3 — Bounded concurrency everywhere
+
 No code path runs unbounded `Promise.all` over external input. All fan-outs
 go through `mapWithConcurrency` with explicit limits, per-provider
 semaphores and cooperative `AbortSignal` cancellation. Circuit breakers
@@ -58,6 +61,7 @@ open per provider after repeated failures so one dead upstream cannot
 consume request budget.
 
 ### D4 — RRF merge with cross-provider dedupe
+
 Federated search merges results with Reciprocal Rank Fusion (k=60),
 deduplicates by canonical URL key, then drops near-duplicate content by
 fingerprint similarity. Corroboration (multiple providers returning the
@@ -65,12 +69,14 @@ same result) contributes to ranking. Provider scores are not trusted
 across providers; only per-provider ordering is used.
 
 ### D5 — Extraction treats web content as untrusted data
+
 Readability runs over a DOM built by linkedom (no scripts execute).
 Documents carry provenance (final URL after redirects, fetch timestamp,
 fingerprints). Extraction is capped by content length and chunk count so
 hostile inputs cannot exhaust the indexer.
 
 ### D6 — Deterministic core, optional model intelligence
+
 Fetching, caching, parsing, merging and basic ranking are deterministic and
 LLM-free. Language models are reserved for query expansion, research
 planning and synthesis — and the platform stays fully functional without

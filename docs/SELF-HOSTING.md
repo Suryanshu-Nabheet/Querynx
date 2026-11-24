@@ -28,9 +28,9 @@ curl -X POST http://localhost:3001/v1/search \
 
 Services:
 
-| Service | Address | Purpose |
-|---|---|---|
-| `api` | http://localhost:3001 | Querynx HTTP API |
+| Service   | Address               | Purpose                       |
+| --------- | --------------------- | ----------------------------- |
+| `api`     | http://localhost:3001 | Querynx HTTP API              |
 | `searxng` | http://localhost:8080 | Metasearch backend (internal) |
 
 Both ports bind to `127.0.0.1` by default — the stack is private to
@@ -41,18 +41,18 @@ exposure.
 
 All configuration is environment-driven (see `apps/api/src/config.ts`).
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `PORT` | `3001` | API listen port |
-| `HOST` | `127.0.0.1` (compose: `0.0.0.0` behind the port map) | Listen address |
-| `QUERYNX_API_KEYS` | *(empty = open)* | Comma-separated API keys. Empty disables auth for local dev; set for production. |
-| `SEARXNG_BASE_URL` | *(compose sets it)* | SearXNG instance URL |
-| `BRAVE_API_KEY` | — | Optional Brave Search key |
-| `TAVILY_API_KEY` | — | Optional Tavily key |
-| `SEARCH_CACHE_TTL_MS` | `300000` | Result cache TTL |
-| `PRODUCER_CONCURRENCY` | `4` | Max simultaneous provider requests |
-| `ANONYMOUS_RATE_LIMIT_PER_MIN` | `30` | Per-identity request budget |
-| `QUERYNX_ALLOW_PRIVATE_NETWORKS` | `false` | Operator opt-in for intranet fetching. Never settable per request. |
+| Variable                         | Default                                              | Meaning                                                                          |
+| -------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `PORT`                           | `3001`                                               | API listen port                                                                  |
+| `HOST`                           | `127.0.0.1` (compose: `0.0.0.0` behind the port map) | Listen address                                                                   |
+| `QUERYNX_API_KEYS`               | _(empty = open)_                                     | Comma-separated API keys. Empty disables auth for local dev; set for production. |
+| `SEARXNG_BASE_URL`               | _(compose sets it)_                                  | SearXNG instance URL                                                             |
+| `BRAVE_API_KEY`                  | —                                                    | Optional Brave Search key                                                        |
+| `TAVILY_API_KEY`                 | —                                                    | Optional Tavily key                                                              |
+| `SEARCH_CACHE_TTL_MS`            | `300000`                                             | Result cache TTL                                                                 |
+| `PRODUCER_CONCURRENCY`           | `4`                                                  | Max simultaneous provider requests                                               |
+| `ANONYMOUS_RATE_LIMIT_PER_MIN`   | `30`                                                 | Per-identity request budget                                                      |
+| `QUERYNX_ALLOW_PRIVATE_NETWORKS` | `false`                                              | Operator opt-in for intranet fetching. Never settable per request.               |
 
 ## Production checklist
 

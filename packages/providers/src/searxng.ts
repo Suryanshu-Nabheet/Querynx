@@ -5,9 +5,9 @@
  * instance's rate limits.
  */
 
-import type { SearchProvider, SearchQuery, SearchResult } from '@querynx/types';
-import { fetchUrl } from '@querynx/fetcher';
-import { canonicalizeUrl } from '@querynx/shared';
+import type { SearchProvider, SearchQuery, SearchResult } from "@querynx/types";
+import { fetchUrl } from "@querynx/fetcher";
+import { canonicalizeUrl } from "@querynx/shared";
 
 export interface SearxngConfig {
   /** Base URL of the SearXNG instance, e.g. "https://searx.example.com". */
@@ -32,9 +32,11 @@ interface SearxngResponse {
   unresponsive_engines?: Array<[string, string]>;
 }
 
-function parsePublished(value: number | string | undefined): string | undefined {
+function parsePublished(
+  value: number | string | undefined,
+): string | undefined {
   if (value === undefined) return undefined;
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     const ms = value > 1e12 ? value : value * 1000;
     const date = new Date(ms);
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
@@ -44,64 +46,67 @@ function parsePublished(value: number | string | undefined): string | undefined 
 }
 
 export class SearxngProvider implements SearchProvider {
-  readonly name = 'searxng';
+  readonly name = "searxng";
 
   constructor(
     private readonly config: SearxngConfig,
-    private readonly timeoutMs = 10_000
+    private readonly timeoutMs = 10_000,
   ) {}
 
   isConfigured(): boolean {
     try {
       const u = new URL(this.config.baseUrl);
-      return u.protocol === 'http:' || u.protocol === 'https:';
+      return u.protocol === "http:" || u.protocol === "https:";
     } catch {
       return false;
     }
   }
 
-  async search(query: SearchQuery, signal?: AbortSignal): Promise<SearchResult[]> {
-    const url = new URL('/search', this.config.baseUrl);
-    url.searchParams.set('q', query.query);
-    url.searchParams.set('format', 'json');
-    url.searchParams.set('safesearch', String(this.config.safesearch ?? 1));
+  async search(
+    query: SearchQuery,
+    signal?: AbortSignal,
+  ): Promise<SearchResult[]> {
+    const url = new URL("/search", this.config.baseUrl);
+    url.searchParams.set("q", query.query);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("safesearch", String(this.config.safesearch ?? 1));
     if (this.config.engines) {
-      url.searchParams.set('engines', this.config.engines);
+      url.searchParams.set("engines", this.config.engines);
     }
     // SearXNG supports language codes like "en-US"; region via "language".
     if (query.language) {
-      url.searchParams.set('language', query.language);
+      url.searchParams.set("language", query.language);
     }
     if (query.region && !query.language) {
-      url.searchParams.set('language', query.region);
+      url.searchParams.set("language", query.region);
     }
     // Category routing.
-    const category = query.category ?? 'web';
-    if (category === 'news') {
-      url.searchParams.set('categories', 'news');
-    } else if (category === 'code') {
-      url.searchParams.set('categories', 'it');
-    } else if (category === 'academic') {
-      url.searchParams.set('categories', 'science');
-    } else if (category === 'docs') {
-      url.searchParams.set('categories', 'it,general');
+    const category = query.category ?? "web";
+    if (category === "news") {
+      url.searchParams.set("categories", "news");
+    } else if (category === "code") {
+      url.searchParams.set("categories", "it");
+    } else if (category === "academic") {
+      url.searchParams.set("categories", "science");
+    } else if (category === "docs") {
+      url.searchParams.set("categories", "it,general");
     }
     // Time range filter.
-    if (query.freshness && query.freshness !== 'any') {
+    if (query.freshness && query.freshness !== "any") {
       const ranges: Record<string, string> = {
-        day: 'day',
-        week: 'week',
-        month: 'month',
-        year: 'year',
+        day: "day",
+        week: "week",
+        month: "month",
+        year: "year",
       };
       const range = ranges[query.freshness];
-      if (range) url.searchParams.set('time_range', range);
+      if (range) url.searchParams.set("time_range", range);
     }
 
     const response = await fetchUrl(url.toString(), {
       timeoutMs: this.timeoutMs,
       maxBytes: 5 * 1024 * 1024,
-      headers: { accept: 'application/json' },
+      headers: { accept: "application/json" },
       signal,
     });
 
@@ -113,7 +118,9 @@ export class SearxngProvider implements SearchProvider {
     try {
       parsed = JSON.parse(response.body) as SearxngResponse;
     } catch {
-      throw new Error('SearXNG returned non-JSON response (json format disabled?)');
+      throw new Error(
+        "SearXNG returned non-JSON response (json format disabled?)",
+      );
     }
 
     const items = parsed.results ?? [];
@@ -125,7 +132,7 @@ export class SearxngProvider implements SearchProvider {
       results.push({
         title: item.title.trim(),
         url: canonical,
-        snippet: (item.content ?? '').trim().slice(0, 1000),
+        snippet: (item.content ?? "").trim().slice(0, 1000),
         score: 0.5, // normalized during merge
         provider: this.name,
         publishedAt: parsePublished(item.publishedDate),

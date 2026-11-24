@@ -7,7 +7,7 @@
  * replace or augment this via the API layer later.
  */
 
-import { tokenize } from '@querynx/indexer';
+import { tokenize } from "@querynx/indexer";
 
 /**
  * Split an objective into 1-3 initial queries. Long objectives get
@@ -18,7 +18,7 @@ export function planInitialQueries(objective: string, mode: string): string[] {
   if (!trimmed) return [];
 
   // Academic mode biases toward scholarly phrasing.
-  const academic = mode === 'academic';
+  const academic = mode === "academic";
 
   // Split on clause punctuation for multi-part objectives.
   const clauses = trimmed
@@ -49,10 +49,18 @@ export function planInitialQueries(objective: string, mode: string): string[] {
  * Derive a follow-up query from an information gap. Keeps the original
  * topic terms and adds differentiators that target the missing aspect.
  */
-export function planFollowUpQuery(gapQuestion: string, tried: readonly string[]): string {
+export function planFollowUpQuery(
+  gapQuestion: string,
+  tried: readonly string[],
+): string {
   const terms = tokenize(gapQuestion);
-  const fresh = terms.filter((t) => !tried.some((q) => q.toLowerCase().includes(t)));
-  const core = fresh.length > 0 ? fresh.slice(0, 5).join(' ') : terms.slice(0, 5).join(' ');
+  const fresh = terms.filter(
+    (t) => !tried.some((q) => q.toLowerCase().includes(t)),
+  );
+  const core =
+    fresh.length > 0
+      ? fresh.slice(0, 5).join(" ")
+      : terms.slice(0, 5).join(" ");
   return `${core} explained details`;
 }
 
@@ -64,14 +72,14 @@ export function planFollowUpQuery(gapQuestion: string, tried: readonly string[])
 export function detectGaps(
   objective: string,
   evidence: ReadonlyArray<{ passage: string; title: string }>,
-  maxGaps: number
+  maxGaps: number,
 ): string[] {
   const objectiveTerms = new Set(tokenize(objective));
   if (objectiveTerms.size === 0) return [];
 
   const corpus = evidence
     .map((e) => `${e.title} ${e.passage}`)
-    .join(' ')
+    .join(" ")
     .toLowerCase();
   const covered = tokenize(corpus);
 

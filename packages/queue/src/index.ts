@@ -9,10 +9,11 @@
  * DATABASE_URL is configured.
  */
 
-import { randomUUID } from 'node:crypto';
-import { backoffDelayMs } from '@querynx/shared';
+import { randomUUID } from "node:crypto";
+import { backoffDelayMs } from "@querynx/shared";
 
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'dead';
+export type JobStatus =
+  "pending" | "running" | "completed" | "failed" | "cancelled" | "dead";
 
 export interface Job {
   id: string;
@@ -30,7 +31,7 @@ export interface Job {
 
 export type JobHandler = (
   payload: Record<string, unknown>,
-  signal: AbortSignal
+  signal: AbortSignal,
 ) => Promise<Record<string, unknown> | void>;
 
 export interface QueueOptions {
@@ -46,7 +47,10 @@ export interface QueueOptions {
 
 export class JobQueue {
   private pending: Job[] = [];
-  private readonly running = new Map<string, { job: Job; controller: AbortController }>();
+  private readonly running = new Map<
+    string,
+    { job: Job; controller: AbortController }
+  >();
   private readonly handlers = new Map<string, JobHandler>();
   private readonly dead: Job[] = [];
   private readonly all = new Map<string, Job>();
@@ -75,14 +79,14 @@ export class JobQueue {
   enqueue(
     type: string,
     payload: Record<string, unknown>,
-    options: { priority?: number; maxAttempts?: number } = {}
+    options: { priority?: number; maxAttempts?: number } = {},
   ): Job {
     const job: Job = {
       id: randomUUID(),
       type,
       payload,
       priority: options.priority ?? 0,
-      status: 'pending',
+      status: "pending",
       attempts: 0,
       maxAttempts: options.maxAttempts ?? this.maxAttempts,
       error: null,
@@ -105,13 +109,13 @@ export class JobQueue {
   cancel(id: string): boolean {
     const job = this.all.get(id);
     if (!job) return false;
-    if (job.status === 'pending') {
-      job.status = 'cancelled';
+    if (job.status === "pending") {
+      job.status = "cancelled";
       job.finishedAt = new Date().toISOString();
       this.pending = this.pending.filter((j) => j.id !== id);
       return true;
     }
-    if (job.status === 'running') {
+    if (job.status === "running") {
       this.running.get(id)?.controller.abort();
       return true;
     }
@@ -124,7 +128,13 @@ export class JobQueue {
   }
 
   /** Queue depth snapshots. */
-  stats(): { pending: number; running: number; retryScheduled: number; dead: number; total: number } {
+  stats(): {
+    pending: number;
+    running: number;
+    retryScheduled: number;
+    dead: number;
+    total: number;
+  } {
     return {
       pending: this.pending.length,
       running: this.running.size,
@@ -170,7 +180,10 @@ export class JobQueue {
   private pump(): void {
     if (this.stopped) return;
     // Take up to concurrency slots, highest priority first.
-    this.pending.sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt));
+    this.pending.sort(
+      (a, b) =>
+        b.priority - a.priority || a.createdAt.localeCompare(b.createdAt),
+    );
     while (this.running.size < this.concurrency && this.pending.length > 0) {
       const job = this.pending.shift()!;
       void this.execute(job);
@@ -182,7 +195,7 @@ export class JobQueue {
     const handler = this.handlers.get(job.type);
     const controller = new AbortController();
     this.running.set(job.id, { job, controller });
-    job.status = 'running';
+    job.status = "running";
     job.startedAt = new Date().toISOString();
     job.attempts++;
 
@@ -192,25 +205,25 @@ export class JobQueue {
       }
       const result = await handler(job.payload, controller.signal);
       if (controller.signal.aborted) {
-        job.status = 'cancelled';
+        job.status = "cancelled";
       } else {
-        job.status = 'completed';
+        job.status = "completed";
       }
       (job as Job & { result?: Record<string, unknown> | undefined }).result =
         result ?? undefined;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (controller.signal.aborted) {
-        job.status = 'cancelled';
+        job.status = "cancelled";
       } else if (job.attempts >= job.maxAttempts) {
-        job.status = 'dead';
+        job.status = "dead";
         job.error = message;
         this.dead.push(job);
         if (this.dead.length > this.deadLetterCapacity) this.dead.shift();
       } else {
         // Retry with backoff: hold the job outside pending until the
         // timer fires, tracked so drain() knows work remains.
-        job.status = 'pending';
+        job.status = "pending";
         job.error = message;
         this.retryScheduled++;
         const delay = backoffDelayMs(job.attempts - 1, 100, 5_000);
@@ -221,7 +234,8 @@ export class JobQueue {
         }, delay);
       }
     } finally {
-      job.finishedAt = job.status === 'pending' ? null : new Date().toISOString();
+      job.finishedAt =
+        job.status === "pending" ? null : new Date().toISOString();
       this.running.delete(job.id);
       this.schedulePump();
     }

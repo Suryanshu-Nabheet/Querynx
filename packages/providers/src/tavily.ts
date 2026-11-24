@@ -3,9 +3,9 @@
  * Tavily semantics and as an optional upstream for operators with keys.
  */
 
-import type { SearchProvider, SearchQuery, SearchResult } from '@querynx/types';
-import { fetchUrl } from '@querynx/fetcher';
-import { canonicalizeUrl } from '@querynx/shared';
+import type { SearchProvider, SearchQuery, SearchResult } from "@querynx/types";
+import { fetchUrl } from "@querynx/fetcher";
+import { canonicalizeUrl } from "@querynx/shared";
 
 export interface TavilyConfig {
   apiKey: string;
@@ -23,31 +23,37 @@ interface TavilyResponse {
 }
 
 export class TavilyProvider implements SearchProvider {
-  readonly name = 'tavily';
+  readonly name = "tavily";
   private readonly baseUrl: string;
 
   constructor(
     private readonly config: TavilyConfig,
-    private readonly timeoutMs = 15_000
+    private readonly timeoutMs = 15_000,
   ) {
-    this.baseUrl = config.baseUrl ?? 'https://api.tavily.com';
+    this.baseUrl = config.baseUrl ?? "https://api.tavily.com";
   }
 
   isConfigured(): boolean {
-    return typeof this.config.apiKey === 'string' && this.config.apiKey.length > 0;
+    return (
+      typeof this.config.apiKey === "string" && this.config.apiKey.length > 0
+    );
   }
 
-  async search(query: SearchQuery, signal?: AbortSignal): Promise<SearchResult[]> {
+  async search(
+    query: SearchQuery,
+    signal?: AbortSignal,
+  ): Promise<SearchResult[]> {
     const response = await fetchUrl(`${this.baseUrl}/search`, {
       timeoutMs: this.timeoutMs,
       headers: {
-        'content-type': 'application/json',
+        "content-type": "application/json",
         authorization: `Bearer ${this.config.apiKey}`,
       },
       signal,
     });
 
-    if (response.statusCode === 429) throw new Error('Tavily rate limit exceeded');
+    if (response.statusCode === 429)
+      throw new Error("Tavily rate limit exceeded");
     if (response.statusCode !== 200) {
       throw new Error(`Tavily returned HTTP ${response.statusCode}`);
     }
@@ -55,12 +61,14 @@ export class TavilyProvider implements SearchProvider {
     const body: Record<string, unknown> = {
       query: query.query,
       max_results: Math.min(query.maxResults * 2, 20),
-      search_depth: 'basic',
+      search_depth: "basic",
       include_answer: false,
     };
-    if (query.includeDomains?.length) body['include_domains'] = [...query.includeDomains];
-    if (query.excludeDomains?.length) body['exclude_domains'] = [...query.excludeDomains];
-    if (query.publishedAfter) body['topic'] = 'news';
+    if (query.includeDomains?.length)
+      body["include_domains"] = [...query.includeDomains];
+    if (query.excludeDomains?.length)
+      body["exclude_domains"] = [...query.excludeDomains];
+    if (query.publishedAfter) body["topic"] = "news";
 
     const parsed = JSON.parse(response.body) as TavilyResponse;
     const results: SearchResult[] = [];
@@ -71,8 +79,8 @@ export class TavilyProvider implements SearchProvider {
       results.push({
         title: item.title.trim(),
         url: canonical,
-        snippet: (item.content ?? '').trim().slice(0, 1000),
-        score: typeof item.score === 'number' ? item.score : 0.5,
+        snippet: (item.content ?? "").trim().slice(0, 1000),
+        score: typeof item.score === "number" ? item.score : 0.5,
         provider: this.name,
         publishedAt: item.published_date,
       });

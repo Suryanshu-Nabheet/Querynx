@@ -10,11 +10,11 @@
  *
  *  2. OpenAICompatibleEmbedder — calls an /v1/embeddings endpoint
  *     (OpenAI, Ollama, vLLM, LM Studio, anything speaking the
-     * protocol) when the operator configures one.
+ * protocol) when the operator configures one.
  */
 
-import { createHash } from 'node:crypto';
-import { fetchUrl } from '@querynx/fetcher';
+import { createHash } from "node:crypto";
+import { fetchUrl } from "@querynx/fetcher";
 
 export interface Embedder {
   readonly dimensions: number;
@@ -25,7 +25,7 @@ export interface Embedder {
 function tokens(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}_\s]/gu, ' ')
+    .replace(/[^\p{L}\p{N}_\s]/gu, " ")
     .split(/\s+/)
     .filter((t) => t.length > 1);
 }
@@ -50,7 +50,7 @@ export class HashEmbedder implements Embedder {
 
   constructor(dimensions = 384) {
     if (dimensions < 8 || !Number.isInteger(dimensions)) {
-      throw new Error('dimensions must be an integer >= 8');
+      throw new Error("dimensions must be an integer >= 8");
     }
     this.dimensions = dimensions;
   }
@@ -95,7 +95,7 @@ export class OpenAICompatibleEmbedder implements Embedder {
       model: string;
       dimensions?: number;
       timeoutMs?: number;
-    }
+    },
   ) {
     this.dimensions = config.dimensions ?? 1536;
   }
@@ -105,7 +105,7 @@ export class OpenAICompatibleEmbedder implements Embedder {
       timeoutMs: this.config.timeoutMs ?? 15_000,
       maxBytes: 1024 * 1024,
       headers: {
-        'content-type': 'application/json',
+        "content-type": "application/json",
         ...(this.config.apiKey
           ? { authorization: `Bearer ${this.config.apiKey}` }
           : {}),
@@ -119,7 +119,7 @@ export class OpenAICompatibleEmbedder implements Embedder {
     };
     const embedding = parsed.data?.[0]?.embedding;
     if (!Array.isArray(embedding) || embedding.length === 0) {
-      throw new Error('embeddings API returned no embedding');
+      throw new Error("embeddings API returned no embedding");
     }
     return embedding;
   }
@@ -146,7 +146,7 @@ export function createEmbedder(config: {
 /** Cosine similarity between two vectors. */
 export function cosineSimilarity(
   a: readonly number[],
-  b: readonly number[]
+  b: readonly number[],
 ): number {
   const len = Math.min(a.length, b.length);
   let dot = 0;
@@ -163,6 +163,6 @@ export function cosineSimilarity(
 
 /** Stable fingerprint helper reused by semantic cache keys. */
 export function embeddingFingerprint(vector: readonly number[]): string {
-  const joined = vector.map((v) => v.toFixed(6)).join(',');
-  return createHash('sha256').update(joined).digest('hex').slice(0, 32);
+  const joined = vector.map((v) => v.toFixed(6)).join(",");
+  return createHash("sha256").update(joined).digest("hex").slice(0, 32);
 }

@@ -5,16 +5,10 @@
  * needs zero infrastructure.
  */
 
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { eq, desc, sql, and, count } from 'drizzle-orm';
-import {
-  documents,
-  chunks,
-  apiKeys,
-  jobs,
-  usageEvents,
-} from './schema.js';
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { eq, desc, sql, and, count } from "drizzle-orm";
+import { documents, chunks, apiKeys, jobs, usageEvents } from "./schema.js";
 
 /** Row shape returned by raw sql queries over the documents table. */
 type DocumentRow = typeof documents.$inferSelect;
@@ -37,7 +31,7 @@ export interface DocumentRecord extends DocumentUpsert {
 export interface JobRecord {
   id: string;
   type: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
   payload: Record<string, unknown>;
   result: Record<string, unknown> | null;
   error: string | null;
@@ -53,7 +47,7 @@ export interface JobRecord {
 export class DocumentStore {
   constructor(
     private readonly db: PostgresJsDatabase<Record<string, never>>,
-    private readonly query: postgres.Sql
+    private readonly query: postgres.Sql,
   ) {}
 
   /** Insert or replace by URL; returns the stored row. */
@@ -95,7 +89,7 @@ export class DocumentStore {
       content: string;
       tokenEstimate: number;
       embedding?: readonly number[] | null;
-    }>
+    }>,
   ): Promise<void> {
     await this.db.delete(chunks).where(eq(chunks.documentId, documentId));
     if (rows.length === 0) return;
@@ -107,17 +101,23 @@ export class DocumentStore {
         content: r.content,
         tokenEstimate: r.tokenEstimate,
         embedding: r.embedding ? [...r.embedding] : null,
-      }))
+      })),
     );
   }
 
   async findByUrl(url: string): Promise<DocumentRecord | null> {
-    const [row] = await this.db.select().from(documents).where(eq(documents.url, url)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(documents)
+      .where(eq(documents.url, url))
+      .limit(1);
     return row ? rowToRecord(row) : null;
   }
 
   /** Cursor-based full-corpus scan (boot rehydration, exports). */
-  async scan(options: { limit?: number; afterId?: string } = {}): Promise<DocumentRecord[]> {
+  async scan(
+    options: { limit?: number; afterId?: string } = {},
+  ): Promise<DocumentRecord[]> {
     const limit = options.limit ?? 500;
     const rows = options.afterId
       ? await this.query<Array<DocumentRow>>`
@@ -131,7 +131,10 @@ export class DocumentStore {
   }
 
   async delete(id: string): Promise<boolean> {
-    const res = await this.db.delete(documents).where(eq(documents.id, id)).returning();
+    const res = await this.db
+      .delete(documents)
+      .where(eq(documents.id, id))
+      .returning();
     return res.length > 0;
   }
 
@@ -158,10 +161,12 @@ export class DocumentStore {
    * for /v1/search/semantic when DATABASE_URL is configured). */
   async fullTextSearch(
     queryText: string,
-    options: { collection?: string; limit?: number } = {}
+    options: { collection?: string; limit?: number } = {},
   ): Promise<Array<{ document: DocumentRecord; rank: number }>> {
     const limit = options.limit ?? 10;
-    const rows = await this.query<Array<DocumentRow & { rank: number | string }>>`
+    const rows = await this.query<
+      Array<DocumentRow & { rank: number | string }>
+    >`
       SELECT d.*, ts_rank(
         to_tsvector('english', d.title || ' ' || d.content),
         websearch_to_tsquery('english', ${queryText})
@@ -173,7 +178,8 @@ export class DocumentStore {
       ORDER BY rank DESC
       LIMIT ${limit}
     `;
-    const list = (rows as unknown as Array<DocumentRow & { rank: number | string }>) ?? [];
+    const list =
+      (rows as unknown as Array<DocumentRow & { rank: number | string }>) ?? [];
     return list.map((row) => ({
       document: rowToRecord(row),
       rank: Number(row.rank),
@@ -188,7 +194,7 @@ export class JobStore {
   async create(
     type: string,
     payload: Record<string, unknown>,
-    priority = 0
+    priority = 0,
   ): Promise<JobRecord> {
     const [row] = await this.db
       .insert(jobs)
@@ -198,7 +204,11 @@ export class JobStore {
   }
 
   async get(id: string): Promise<JobRecord | null> {
-    const [row] = await this.db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.id, id))
+      .limit(1);
     return row ? rowToJob(row) : null;
   }
 
@@ -206,17 +216,17 @@ export class JobStore {
   async claimNext(): Promise<JobRecord | null> {
     const [row] = await this.db
       .update(jobs)
-      .set({ status: 'running', startedAt: new Date() })
+      .set({ status: "running", startedAt: new Date() })
       .where(
         and(
-          eq(jobs.status, 'pending'),
+          eq(jobs.status, "pending"),
           sql`${jobs.id} = (
             SELECT id FROM jobs WHERE status = 'pending'
             ORDER BY priority DESC, created_at ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
-          )`
-        )
+          )`,
+        ),
       )
       .returning();
     return row ? rowToJob(row) : null;
@@ -225,22 +235,22 @@ export class JobStore {
   async complete(id: string, result: Record<string, unknown>): Promise<void> {
     await this.db
       .update(jobs)
-      .set({ status: 'completed', result, finishedAt: new Date() })
+      .set({ status: "completed", result, finishedAt: new Date() })
       .where(eq(jobs.id, id));
   }
 
   async fail(id: string, error: string): Promise<void> {
     await this.db
       .update(jobs)
-      .set({ status: 'failed', error, finishedAt: new Date() })
+      .set({ status: "failed", error, finishedAt: new Date() })
       .where(eq(jobs.id, id));
   }
 
   async cancel(id: string): Promise<boolean> {
     const res = await this.db
       .update(jobs)
-      .set({ status: 'cancelled', finishedAt: new Date() })
-      .where(and(eq(jobs.id, id), eq(jobs.status, 'pending')))
+      .set({ status: "cancelled", finishedAt: new Date() })
+      .where(and(eq(jobs.id, id), eq(jobs.status, "pending")))
       .returning();
     return res.length > 0;
   }
@@ -250,8 +260,10 @@ export class JobStore {
     const cutoff = new Date(Date.now() - olderThanMs);
     const res = await this.db
       .update(jobs)
-      .set({ status: 'pending', startedAt: null })
-      .where(and(eq(jobs.status, 'running'), sql`${jobs.startedAt} < ${cutoff}`))
+      .set({ status: "pending", startedAt: null })
+      .where(
+        and(eq(jobs.status, "running"), sql`${jobs.startedAt} < ${cutoff}`),
+      )
       .returning();
     return res.length;
   }
@@ -270,14 +282,24 @@ export class JobStore {
 export class ApiKeyDbStore {
   constructor(private readonly db: PostgresJsDatabase<Record<string, never>>) {}
 
-  async load(): Promise<Array<{ hash: string; label: string; revoked: boolean }>> {
+  async load(): Promise<
+    Array<{ hash: string; label: string; revoked: boolean }>
+  > {
     const rows = await this.db
-      .select({ hash: apiKeys.hash, label: apiKeys.label, revoked: apiKeys.revoked })
+      .select({
+        hash: apiKeys.hash,
+        label: apiKeys.label,
+        revoked: apiKeys.revoked,
+      })
       .from(apiKeys);
     return rows;
   }
 
-  async save(record: { hash: string; label: string; rateLimitPerMinute?: number }): Promise<void> {
+  async save(record: {
+    hash: string;
+    label: string;
+    rateLimitPerMinute?: number;
+  }): Promise<void> {
     await this.db
       .insert(apiKeys)
       .values(record)
@@ -347,7 +369,9 @@ function rowToRecord(row: DocumentRow): DocumentRecord {
     title: row.title,
     content: row.content,
     fingerprint: row.fingerprint,
-    publishedAt: row.publishedAt ? new Date(row.publishedAt).toISOString() : null,
+    publishedAt: row.publishedAt
+      ? new Date(row.publishedAt).toISOString()
+      : null,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
     indexedAt: new Date(row.indexedAt).toISOString(),
   };
@@ -357,7 +381,7 @@ function rowToJob(row: typeof jobs.$inferSelect): JobRecord {
   return {
     id: row.id,
     type: row.type,
-    status: row.status as JobRecord['status'],
+    status: row.status as JobRecord["status"],
     payload: (row.payload as Record<string, unknown>) ?? {},
     result: (row.result as Record<string, unknown> | null) ?? null,
     error: row.error,

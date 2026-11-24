@@ -48,16 +48,18 @@
 </tbody>
 </table>
 <h3 id="typescript-sdk">TypeScript SDK</h3>
-<pre><code class="lang-ts">import { QuerynxClient } from '@querynx/sdk';
+<pre><code class="lang-ts">import { QuerynxClient } from &quot;@querynx/sdk&quot;;
 
 const client = new QuerynxClient({
-  baseUrl: 'http://localhost:3001',
-  apiKey: 'your-key',
+  baseUrl: &quot;http://localhost:3001&quot;,
+  apiKey: &quot;your-key&quot;,
 });
 
-const search = await client.search('postgres mvcc', { maxResults: 5 });
-const page = await client.extract(['https://example.com/article']);
-const { report } = await client.research('how does mvcc work', { mode: 'fast' });</code></pre>
+const search = await client.search(&quot;postgres mvcc&quot;, { maxResults: 5 });
+const page = await client.extract([&quot;https://example.com/article&quot;]);
+const { report } = await client.research(&quot;how does mvcc work&quot;, {
+  mode: &quot;fast&quot;,
+});</code></pre>
 <p>Retries on 5xx with exponential backoff; 4xx fail fast with typed</p>
 <p><code>QuerynxError</code> (status, code, requestId).</p>
 <h3 id="python-sdk">Python SDK</h3>
@@ -79,15 +81,15 @@ pnpm --filter @querynx/cli start -- research &quot;compare caching strategies&qu
 pnpm --filter @querynx/cli start -- providers</code></pre>
 <p>Environment: <code>QUERYNX_URL</code>, <code>QUERYNX_API_KEY</code>.</p>
 <h3 id="langchain">LangChain</h3>
-<pre><code class="lang-ts">import { createQuerynxTools } from '@querynx/langchain';
+<pre><code class="lang-ts">import { createQuerynxTools } from &quot;@querynx/langchain&quot;;
 
-const tools = createQuerynxTools({ baseUrl: 'http://localhost:3001' });
+const tools = createQuerynxTools({ baseUrl: &quot;http://localhost:3001&quot; });
 // -&gt; [QuerynxSearchTool, QuerynxExtractTool, QuerynxResearchTool]
 // StructuredTool subclasses: drop into any LangChain agent.</code></pre>
 <h3 id="llamaindex">LlamaIndex</h3>
-<pre><code class="lang-ts">import { toQueryEngineTools } from '@querynx/llamaindex';
+<pre><code class="lang-ts">import { toQueryEngineTools } from &quot;@querynx/llamaindex&quot;;
 
-const tools = await toQueryEngineTools({ baseUrl: 'http://localhost:3001' });
+const tools = await toQueryEngineTools({ baseUrl: &quot;http://localhost:3001&quot; });
 // FunctionTool objects when llamaindex is installed; plain callables
 // with identical contracts otherwise.</code></pre>
 <h3 id="tavily-compatible-api">Tavily-compatible API</h3>

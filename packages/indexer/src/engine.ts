@@ -10,15 +10,15 @@
  * and small corpora.
  */
 
-import { randomUUID } from 'node:crypto';
-import { tokenize, termFrequencies } from './tokenize.js';
+import { randomUUID } from "node:crypto";
+import { tokenize, termFrequencies } from "./tokenize.js";
 import type {
   IndexedDocument,
   IndexStats,
   RetrievalHit,
   RetrievalQuery,
-} from './store.js';
-import { extractDomain } from '@querynx/shared';
+} from "./store.js";
+import { extractDomain } from "@querynx/shared";
 
 const K1 = 1.2;
 const B = 0.75;
@@ -38,7 +38,12 @@ export class MemorySearchEngine {
   private totalLength = 0;
 
   /** Index (or replace) a document. */
-  index(document: Omit<IndexedDocument, 'id' | 'indexedAt'> & { id?: string; indexedAt?: string }): IndexedDocument {
+  index(
+    document: Omit<IndexedDocument, "id" | "indexedAt"> & {
+      id?: string;
+      indexedAt?: string;
+    },
+  ): IndexedDocument {
     const id = document.id ?? randomUUID();
     // Replace semantics: remove previous version if the id exists.
     if (this.docs.has(id)) this.remove(id);
@@ -50,7 +55,9 @@ export class MemorySearchEngine {
     };
     this.docs.set(id, stored);
 
-    const tokens = tokenize(`${stored.title} ${stored.title} ${stored.content}`);
+    const tokens = tokenize(
+      `${stored.title} ${stored.title} ${stored.content}`,
+    );
     const tf = termFrequencies(tokens);
     this.docTerms.set(id, tf);
     this.docLengths.set(id, tokens.length);
@@ -118,15 +125,23 @@ export class MemorySearchEngine {
         const doc = this.docs.get(posting.docId);
         if (!doc) continue;
         if (query.collection && doc.collection !== query.collection) continue;
-        if (query.domains && !query.domains.includes(extractDomain(doc.url))) continue;
-        if (query.publishedAfter && (doc.publishedAt ?? '') < query.publishedAfter) continue;
+        if (query.domains && !query.domains.includes(extractDomain(doc.url)))
+          continue;
+        if (
+          query.publishedAfter &&
+          (doc.publishedAt ?? "") < query.publishedAfter
+        )
+          continue;
 
         const dl = this.docLengths.get(posting.docId) ?? 0;
         const denominator =
           posting.tf + K1 * (1 - B + B * (avgdl > 0 ? dl / avgdl : 0));
-        const contribution = idf * (posting.tf * (K1 + 1)) / denominator;
+        const contribution = (idf * (posting.tf * (K1 + 1))) / denominator;
 
-        const entry = scored.get(posting.docId) ?? { score: 0, matched: new Set<string>() };
+        const entry = scored.get(posting.docId) ?? {
+          score: 0,
+          matched: new Set<string>(),
+        };
         entry.score += contribution;
         entry.matched.add(term);
         scored.set(posting.docId, entry);
@@ -150,9 +165,7 @@ export class MemorySearchEngine {
       hit.score = max > 0 ? hit.bm25Score / max : 0;
     }
 
-    return hits
-      .sort((a, b) => b.bm25Score - a.bm25Score)
-      .slice(0, query.limit);
+    return hits.sort((a, b) => b.bm25Score - a.bm25Score).slice(0, query.limit);
   }
 
   /** Corpus statistics. */

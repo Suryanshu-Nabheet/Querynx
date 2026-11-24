@@ -26,7 +26,7 @@ export interface CacheStats {
 
 /** Compute the stable cache key for a variable-length argument list. */
 function keyFrom(parts: ReadonlyArray<string>): string {
-  return parts.join('\u0000');
+  return parts.join("\u0000");
 }
 
 export class TTLCache<V> {
@@ -39,10 +39,10 @@ export class TTLCache<V> {
 
   constructor(
     private readonly defaultTtlMs: number,
-    private readonly maxEntries: number
+    private readonly maxEntries: number,
   ) {
-    if (defaultTtlMs <= 0) throw new Error('TTL must be positive');
-    if (maxEntries < 1) throw new Error('maxEntries must be >= 1');
+    if (defaultTtlMs <= 0) throw new Error("TTL must be positive");
+    if (maxEntries < 1) throw new Error("maxEntries must be >= 1");
   }
 
   /** Look up a key. Returns undefined on miss or expiry. */
@@ -84,7 +84,7 @@ export class TTLCache<V> {
   async getOrCompute(
     key: string,
     compute: () => Promise<V>,
-    ttlMs?: number
+    ttlMs?: number,
   ): Promise<V> {
     const cached = this.get(key);
     if (cached !== undefined) return cached;
@@ -173,17 +173,22 @@ export function searchCacheKey(parts: {
   providers?: readonly string[];
 }): string {
   const normalize = (list?: readonly string[]) =>
-    list ? [...list].map((s) => s.toLowerCase()).sort().join(',') : '';
+    list
+      ? [...list]
+          .map((s) => s.toLowerCase())
+          .sort()
+          .join(",")
+      : "";
   return keyFrom([
-    'search',
+    "search",
     parts.query.trim().toLowerCase(),
     String(parts.maxResults),
     normalize(parts.includeDomains),
     normalize(parts.excludeDomains),
-    parts.language ?? '',
-    parts.region ?? '',
-    parts.freshness ?? 'any',
-    parts.category ?? 'web',
+    parts.language ?? "",
+    parts.region ?? "",
+    parts.freshness ?? "any",
+    parts.category ?? "web",
     normalize(parts.providers),
   ]);
 }

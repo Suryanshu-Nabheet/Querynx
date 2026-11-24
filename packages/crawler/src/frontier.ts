@@ -3,8 +3,8 @@
  * ordering, with per-domain throttling and a global concurrency budget.
  */
 
-import type { CrawlStrategy } from '@querynx/types';
-import { extractDomain, canonicalizeUrl } from '@querynx/shared';
+import type { CrawlStrategy } from "@querynx/types";
+import { extractDomain, canonicalizeUrl } from "@querynx/shared";
 
 export interface FrontierEntry {
   url: string;
@@ -15,9 +15,9 @@ export interface FrontierEntry {
 
 /** Result of frontier.take(): either work, or a cooldown hint. */
 export type TakeResult =
-  | { kind: 'entry'; entry: FrontierEntry }
-  | { kind: 'cooldown'; retryAfterMs: number }
-  | { kind: 'empty' };
+  | { kind: "entry"; entry: FrontierEntry }
+  | { kind: "cooldown"; retryAfterMs: number }
+  | { kind: "empty" };
 
 /**
  * URL frontier with:
@@ -37,7 +37,7 @@ export class CrawlFrontier {
     private readonly maxDepth: number,
     private readonly maxPages: number,
     private readonly allowedDomains: ReadonlySet<string> | null,
-    private readonly strategy: CrawlStrategy = 'breadth-first'
+    private readonly strategy: CrawlStrategy = "breadth-first",
   ) {}
 
   /** Whether any more URLs may be accepted (page budget consumed). */
@@ -74,11 +74,11 @@ export class CrawlFrontier {
   }
 
   private insert(entry: FrontierEntry): void {
-    if (this.strategy === 'depth-first') {
+    if (this.strategy === "depth-first") {
       this.queue.push(entry); // take() pops from the end — DFS
       return;
     }
-    if (this.strategy === 'priority') {
+    if (this.strategy === "priority") {
       // Sorted insert: highest priority first, then shallowest.
       let index = this.queue.length;
       while (
@@ -107,21 +107,25 @@ export class CrawlFrontier {
    */
   take(now: number): TakeResult {
     const scanFrom = (start: number, step: number): TakeResult => {
-      for (let i = start; step > 0 ? i < this.queue.length : i >= 0; i += step) {
+      for (
+        let i = start;
+        step > 0 ? i < this.queue.length : i >= 0;
+        i += step
+      ) {
         const entry = this.queue[i]!;
         const domain = extractDomain(entry.url);
         const nextAllowed = this.domainNextAllowed.get(domain) ?? 0;
         if (nextAllowed <= now) {
           this.queue.splice(i, 1);
-          return { kind: 'entry', entry };
+          return { kind: "entry", entry };
         }
       }
-      if (this.queue.length === 0) return { kind: 'empty' };
-      return { kind: 'cooldown', retryAfterMs: this.soonestDomainRetry(now) };
+      if (this.queue.length === 0) return { kind: "empty" };
+      return { kind: "cooldown", retryAfterMs: this.soonestDomainRetry(now) };
     };
 
     // DFS scans from the newest end; BFS/priority scan from the front.
-    return this.strategy === 'depth-first'
+    return this.strategy === "depth-first"
       ? scanFrom(this.queue.length - 1, -1)
       : scanFrom(0, 1);
   }
@@ -155,9 +159,14 @@ export class CrawlFrontier {
     maxDepth: number,
     maxPages: number,
     allowedDomains: ReadonlySet<string> | null,
-    strategy: CrawlStrategy
+    strategy: CrawlStrategy,
   ): CrawlFrontier {
-    const frontier = new CrawlFrontier(maxDepth, maxPages, allowedDomains, strategy);
+    const frontier = new CrawlFrontier(
+      maxDepth,
+      maxPages,
+      allowedDomains,
+      strategy,
+    );
     for (const url of data.seen) frontier.seen.add(url);
     frontier.urlsSeen = data.seen.length;
     for (const entry of data.queue) frontier.queue.push(entry);

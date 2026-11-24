@@ -4,18 +4,18 @@
 
 /** Tracking query parameters removed by canonicalization. */
 const TRACKING_PARAMS = new Set([
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'gclid',
-  'fbclid',
-  'mc_cid',
-  'mc_eid',
-  'ref',
-  'ref_src',
-  'ref_url',
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "gclid",
+  "fbclid",
+  "mc_cid",
+  "mc_eid",
+  "ref",
+  "ref_src",
+  "ref_url",
 ]);
 
 /**
@@ -35,31 +35,31 @@ export function canonicalizeUrl(input: string): string | null {
   } catch {
     return null;
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
     return null;
   }
 
-  u.hash = '';
+  u.hash = "";
   u.hostname = u.hostname.toLowerCase();
   // Strip credentials: userinfo in canonical URLs is a leakage risk
   // (they end up in logs, cache keys and the index).
-  u.username = '';
-  u.password = '';
+  u.username = "";
+  u.password = "";
 
   if (
-    (u.protocol === 'https:' && u.port === '443') ||
-    (u.protocol === 'http:' && u.port === '80')
+    (u.protocol === "https:" && u.port === "443") ||
+    (u.protocol === "http:" && u.port === "80")
   ) {
-    u.port = '';
+    u.port = "";
   }
 
   for (const param of [...TRACKING_PARAMS]) {
     u.searchParams.delete(param);
   }
 
-  u.pathname = u.pathname.replace(/\/{2,}/g, '/');
-  if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-    u.pathname = u.pathname.replace(/\/+$/, '');
+  u.pathname = u.pathname.replace(/\/{2,}/g, "/");
+  if (u.pathname !== "/" && u.pathname.endsWith("/")) {
+    u.pathname = u.pathname.replace(/\/+$/, "");
   }
 
   return u.toString();
@@ -68,9 +68,9 @@ export function canonicalizeUrl(input: string): string | null {
 /** Extract the registrable domain (e.g. "example.co.uk" -> "example.co.uk"). */
 export function extractDomain(url: string): string {
   try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -81,9 +81,9 @@ export function extractDomain(url: string): string {
  */
 export function normalizeDomainFilter(domain: string): string {
   const trimmed = domain.trim().toLowerCase();
-  const withoutProtocol = trimmed.replace(/^https?:\/\//, '');
-  const withoutWildcard = withoutProtocol.replace(/^\*\./, '');
-  return withoutWildcard.replace(/\/+$/, '').replace(/^www\./, '');
+  const withoutProtocol = trimmed.replace(/^https?:\/\//, "");
+  const withoutWildcard = withoutProtocol.replace(/^\*\./, "");
+  return withoutWildcard.replace(/\/+$/, "").replace(/^www\./, "");
 }
 
 /**
@@ -102,7 +102,7 @@ export function domainMatches(url: string, filter: string): boolean {
 export function passesDomainFilters(
   url: string,
   include?: readonly string[],
-  exclude?: readonly string[]
+  exclude?: readonly string[],
 ): boolean {
   if (include && include.length > 0) {
     const ok = include.some((d) => domainMatches(url, d));
@@ -126,18 +126,18 @@ export function isSafeOutboundUrl(input: string): boolean {
   } catch {
     return false;
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
   const host = u.hostname.toLowerCase().toLowerCase();
-  if (host === '') return false;
+  if (host === "") return false;
   // Reject literal loopback / link-local / private network targets and
   // cloud metadata endpoints. DNS resolution checks happen in the fetcher.
   if (
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host.endsWith('.local') ||
-    host.endsWith('.internal') ||
-    host === 'metadata.google.internal' ||
-    host === '169.254.169.254'
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "metadata.google.internal" ||
+    host === "169.254.169.254"
   ) {
     return false;
   }
@@ -148,10 +148,10 @@ export function isSafeOutboundUrl(input: string): boolean {
   if (v6) {
     // Import cycle avoidance: inline the v6 classification here.
     const addr = v6[1]!.toLowerCase();
-    if (addr === '::' || addr === '::1') return false;
+    if (addr === "::" || addr === "::1") return false;
     const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
     if (mapped && isPrivateIpv4(mapped[1]!)) return false;
-    if (addr.startsWith('fc') || addr.startsWith('fd')) return false; // unique local
+    if (addr.startsWith("fc") || addr.startsWith("fd")) return false; // unique local
     if (/^fe[89ab]/.test(addr)) return false; // link local fe80::/10
     return true;
   }
@@ -160,7 +160,7 @@ export function isSafeOutboundUrl(input: string): boolean {
 
 /** Whether a hostname is a private/reserved IPv4 literal. */
 export function isPrivateIpv4(host: string): boolean {
-  const parts = host.split('.');
+  const parts = host.split(".");
   if (parts.length !== 4) return false;
   const octets: number[] = [];
   for (const p of parts) {

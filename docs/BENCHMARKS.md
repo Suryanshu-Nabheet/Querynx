@@ -14,13 +14,13 @@ tests; re-run them after touching the retrieval stack.
 
 **Measured (2026-11-24, Node 26, macOS):**
 
-| Metric | Value |
-|---|---|
-| MRR | 0.88 |
-| Recall@5 | 1.00 |
-| Recall@10 | 1.00 |
+| Metric       | Value |
+| ------------ | ----- |
+| MRR          | 0.88  |
+| Recall@5     | 1.00  |
+| Recall@10    | 1.00  |
 | Precision@10 | 0.125 |
-| NDCG@10 | 0.80 |
+| NDCG@10      | 0.80  |
 
 Interpretation: every judged document is retrieved (recall 1.0) and the
 correct document is usually ranked first (MRR 0.88). Precision@10 is
@@ -35,16 +35,16 @@ low by construction — 10 retrieved for ~1 relevant each — not a defect.
 
 **Measured (2026-11-24):**
 
-| Benchmark | Result |
-|---|---|
-| BM25 index 500 docs (60 sentences each) | P50 49ms (~10k docs/s single-threaded) |
-| BM25 query over 2000-doc corpus | P50 0.66ms / P95 1.61ms |
-| Fingerprint 100-sentence text | P50 0.45ms |
-| Canonicalize 100 URLs | P50 0.97ms |
-| Cache stampede: 100 concurrent identical gets | 1 compute, 11.5ms total |
-| Extract realistic page (150 paragraphs) | P50 4.2ms |
-| Federated merge, 3 providers × 20 results | P50 4.57ms |
-| Bounded concurrency: 200 tasks @ 16-wide | peak exactly 16, 29ms |
+| Benchmark                                     | Result                                 |
+| --------------------------------------------- | -------------------------------------- |
+| BM25 index 500 docs (60 sentences each)       | P50 49ms (~10k docs/s single-threaded) |
+| BM25 query over 2000-doc corpus               | P50 0.66ms / P95 1.61ms                |
+| Fingerprint 100-sentence text                 | P50 0.45ms                             |
+| Canonicalize 100 URLs                         | P50 0.97ms                             |
+| Cache stampede: 100 concurrent identical gets | 1 compute, 11.5ms total                |
+| Extract realistic page (150 paragraphs)       | P50 4.2ms                              |
+| Federated merge, 3 providers × 20 results     | P50 4.57ms                             |
+| Bounded concurrency: 200 tasks @ 16-wide      | peak exactly 16, 29ms                  |
 
 Interpretation: retrieval and merge paths are well inside interactive
 latency budgets; the cache prevents thundering herds exactly as

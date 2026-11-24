@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 /**
  * Shared vitest defaults. Slow CI runners need roomier timeouts than
@@ -8,7 +8,13 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['security/**/*.test.ts', 'integration/**/*.test.ts', 'e2e/**/*.test.ts', 'unit/**/*.test.ts', 'fixtures/**/*.test.ts'],
+    include: [
+      "security/**/*.test.ts",
+      "integration/**/*.test.ts",
+      "e2e/**/*.test.ts",
+      "unit/**/*.test.ts",
+      "fixtures/**/*.test.ts",
+    ],
     testTimeout: 15_000,
     hookTimeout: 30_000,
     teardownTimeout: 10_000,

@@ -15,7 +15,7 @@ import type {
   SearchResponse,
   ProviderSearchAttempt,
   ProviderHealth,
-} from '@querynx/types';
+} from "@querynx/types";
 import {
   CircuitBreaker,
   CircuitOpenError,
@@ -25,7 +25,7 @@ import {
   fingerprintSimilarity,
   mapWithConcurrency,
   passesDomainFilters,
-} from '@querynx/shared';
+} from "@querynx/shared";
 
 export interface OrchestratorOptions {
   /** Hard cap on simultaneous provider requests. */
@@ -77,15 +77,23 @@ class ProviderHealthTracker {
       const successes = outcomes.filter(Boolean).length;
       const breaker = this.breakers.get(p.name);
       const sorted = [...latencies].sort((a, b) => a - b);
-      const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)]! : 0;
+      const median =
+        sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)]! : 0;
       return {
         name: p.name,
-        state: breaker?.status ?? 'closed',
-        consecutiveFailures: breaker ? (breaker.status === 'open' ? breakerThresholdDefault : 0) : 0,
+        state: breaker?.status ?? "closed",
+        consecutiveFailures: breaker
+          ? breaker.status === "open"
+            ? breakerThresholdDefault
+            : 0
+          : 0,
         successRate: outcomes.length > 0 ? successes / outcomes.length : 1,
         medianLatencyMs: median,
         configured: p.isConfigured(),
-        note: breaker?.status === 'open' ? 'circuit open (recent failures)' : undefined,
+        note:
+          breaker?.status === "open"
+            ? "circuit open (recent failures)"
+            : undefined,
       };
     });
   }
@@ -101,10 +109,10 @@ export class SearchOrchestrator {
 
   constructor(
     providers: readonly SearchProvider[],
-    options: OrchestratorOptions = {}
+    options: OrchestratorOptions = {},
   ) {
     if (providers.length === 0) {
-      throw new Error('SearchOrchestrator requires at least one provider');
+      throw new Error("SearchOrchestrator requires at least one provider");
     }
     this.providers = [...providers];
     this.options = {
@@ -112,7 +120,8 @@ export class SearchOrchestrator {
       breakerThreshold: options.breakerThreshold ?? 3,
       breakerResetMs: options.breakerResetMs ?? 60_000,
       providerTimeoutMs: options.providerTimeoutMs ?? 12_000,
-      duplicateSimilarityThreshold: options.duplicateSimilarityThreshold ?? 0.85,
+      duplicateSimilarityThreshold:
+        options.duplicateSimilarityThreshold ?? 0.85,
     };
     this.providerSemaphore = new Semaphore(this.options.maxProviderConcurrency);
   }
@@ -133,27 +142,39 @@ export class SearchOrchestrator {
       providers?: readonly string[];
       /** Streamed per-provider partial results as they complete. */
       onProviderResult?: (provider: string, results: SearchResult[]) => void;
-    } = {}
+    } = {},
   ): Promise<SearchResponse> {
     const started = Date.now();
     const { signal } = options;
     const providerFilter = options.providers;
     const candidates = this.providers.filter(
-      (p) => p.isConfigured() && (!providerFilter || providerFilter.includes(p.name))
+      (p) =>
+        p.isConfigured() &&
+        (!providerFilter || providerFilter.includes(p.name)),
     );
     if (candidates.length === 0) {
-      return emptyResponse(query.query, 'no configured providers available', started);
+      return emptyResponse(
+        query.query,
+        "no configured providers available",
+        started,
+      );
     }
 
     // Fan out across providers with a concurrency cap.
     const perProviderResults = await mapWithConcurrency(
       candidates,
       this.options.maxProviderConcurrency,
-      async (provider): Promise<{ provider: string; results: SearchResult[]; attempt: ProviderSearchAttempt }> => {
+      async (
+        provider,
+      ): Promise<{
+        provider: string;
+        results: SearchResult[];
+        attempt: ProviderSearchAttempt;
+      }> => {
         const breaker = this.healthTracker.getBreaker(
           provider.name,
           this.options.breakerThreshold,
-          this.options.breakerResetMs
+          this.options.breakerResetMs,
         );
         if (!breaker.allowed) {
           return {
@@ -161,10 +182,10 @@ export class SearchOrchestrator {
             results: [],
             attempt: {
               provider: provider.name,
-              status: 'skipped',
+              status: "skipped",
               resultCount: 0,
               durationMs: 0,
-              error: 'circuit open',
+              error: "circuit open",
             },
           };
         }
@@ -176,10 +197,10 @@ export class SearchOrchestrator {
             results: [],
             attempt: {
               provider: provider.name,
-              status: 'skipped',
+              status: "skipped",
               resultCount: 0,
               durationMs: 0,
-              error: 'timeout acquiring provider slot',
+              error: "timeout acquiring provider slot",
             },
           };
         }
@@ -189,12 +210,15 @@ export class SearchOrchestrator {
           const timeoutController = new AbortController();
           const timer = setTimeout(
             () => timeoutController.abort(),
-            this.options.providerTimeoutMs
+            this.options.providerTimeoutMs,
           );
           const onOuterAbort = () => timeoutController.abort();
-          signal?.addEventListener('abort', onOuterAbort, { once: true });
+          signal?.addEventListener("abort", onOuterAbort, { once: true });
           try {
-            const results = await provider.search(query, timeoutController.signal);
+            const results = await provider.search(
+              query,
+              timeoutController.signal,
+            );
             const duration = Date.now() - t0;
             this.healthTracker.recordLatency(provider.name, duration);
             this.healthTracker.recordOutcome(provider.name, true);
@@ -203,16 +227,22 @@ export class SearchOrchestrator {
             return {
               provider: provider.name,
               results,
-              attempt: { provider: provider.name, status: 'ok', resultCount: results.length, durationMs: duration },
+              attempt: {
+                provider: provider.name,
+                status: "ok",
+                resultCount: results.length,
+                durationMs: duration,
+              },
             };
           } finally {
             clearTimeout(timer);
-            signal?.removeEventListener('abort', onOuterAbort);
+            signal?.removeEventListener("abort", onOuterAbort);
           }
         } catch (err) {
           const duration = Date.now() - t0;
           const message = err instanceof Error ? err.message : String(err);
-          const aborted = err instanceof DOMException && err.name === 'AbortError';
+          const aborted =
+            err instanceof DOMException && err.name === "AbortError";
           if (!aborted) {
             this.healthTracker.recordOutcome(provider.name, false);
             breaker.failure();
@@ -222,24 +252,27 @@ export class SearchOrchestrator {
             results: [],
             attempt: {
               provider: provider.name,
-              status: aborted ? 'skipped' : 'error',
+              status: aborted ? "skipped" : "error",
               resultCount: 0,
               durationMs: duration,
-              error: aborted ? 'cancelled' : message,
+              error: aborted ? "cancelled" : message,
             },
           };
         } finally {
           this.providerSemaphore.release();
         }
       },
-      signal
+      signal,
     );
 
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
     const attempts = perProviderResults.map((r) => r.attempt);
-    const succeeded = attempts.filter((a) => a.status === 'ok');
-    const rawCount = perProviderResults.reduce((sum, r) => sum + r.results.length, 0);
+    const succeeded = attempts.filter((a) => a.status === "ok");
+    const rawCount = perProviderResults.reduce(
+      (sum, r) => sum + r.results.length,
+      0,
+    );
 
     if (succeeded.length === 0) {
       return {
@@ -281,16 +314,25 @@ export class SearchOrchestrator {
    */
   private mergeResults(
     perProvider: ReadonlyArray<{ provider: string; results: SearchResult[] }>,
-    query: SearchQuery
+    query: SearchQuery,
   ): SearchResult[] {
     const k = 60; // standard RRF constant
-    const urlSeen = new Map<string, { result: SearchResult; rankSum: number; providers: Set<string> }>();
+    const urlSeen = new Map<
+      string,
+      { result: SearchResult; rankSum: number; providers: Set<string> }
+    >();
     const order: string[] = [];
 
     // Score by RRF over each provider's ordering.
     for (const { provider, results } of perProvider) {
       results.forEach((result, index) => {
-        if (!passesDomainFilters(result.url, query.includeDomains, query.excludeDomains)) {
+        if (
+          !passesDomainFilters(
+            result.url,
+            query.includeDomains,
+            query.excludeDomains,
+          )
+        ) {
           return;
         }
         const key = canonicalDedupeKey(result.url);
@@ -308,7 +350,10 @@ export class SearchOrchestrator {
         } else {
           order.push(key);
           urlSeen.set(key, {
-            result: { ...result, fingerprint: fingerprintText(result.title + ' ' + result.snippet) },
+            result: {
+              ...result,
+              fingerprint: fingerprintText(result.title + " " + result.snippet),
+            },
             rankSum: 1 / (k + index + 1),
             providers: new Set([provider]),
           });
@@ -317,14 +362,18 @@ export class SearchOrchestrator {
     }
 
     // Content-similarity dedupe pass across distinct URLs.
-    const kept: Array<{ result: SearchResult; rankSum: number; providers: Set<string> }> = [];
+    const kept: Array<{
+      result: SearchResult;
+      rankSum: number;
+      providers: Set<string>;
+    }> = [];
     for (const key of order) {
       const entry = urlSeen.get(key)!;
       const isDup = kept.some((existing) => {
         if (existing.result.url === entry.result.url) return true;
         const sim = fingerprintSimilarity(
-          existing.result.fingerprint ?? '',
-          entry.result.fingerprint ?? ''
+          existing.result.fingerprint ?? "",
+          entry.result.fingerprint ?? "",
         );
         return sim >= this.options.duplicateSimilarityThreshold;
       });
@@ -334,7 +383,11 @@ export class SearchOrchestrator {
     // Diversity boost: results confirmed by multiple providers rank higher.
     return kept
       .map(({ result, rankSum, providers }) => ({
-        result: { ...result, score: rankSum, metadata: { ...result.metadata, providers: [...providers] } },
+        result: {
+          ...result,
+          score: rankSum,
+          metadata: { ...result.metadata, providers: [...providers] },
+        },
         rankSum,
         providerCount: providers.size,
       }))
@@ -347,7 +400,11 @@ export class SearchOrchestrator {
   }
 }
 
-function emptyResponse(query: string, error: string, started: number): SearchResponse {
+function emptyResponse(
+  query: string,
+  error: string,
+  started: number,
+): SearchResponse {
   return {
     results: [],
     query,
@@ -360,8 +417,8 @@ function emptyResponse(query: string, error: string, started: number): SearchRes
       duplicateCount: 0,
       attempts: [
         {
-          provider: 'none',
-          status: 'error',
+          provider: "none",
+          status: "error",
           resultCount: 0,
           durationMs: Date.now() - started,
           error,

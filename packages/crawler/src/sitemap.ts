@@ -2,10 +2,13 @@
  * Sitemap.xml parsing for seed discovery.
  */
 
-import { fetchUrl } from '@querynx/fetcher';
+import { fetchUrl } from "@querynx/fetcher";
 
 /** Extract all page URLs from a sitemap or sitemap index XML. */
-export function parseSitemap(xml: string): { urls: string[]; sitemapIndexes: string[] } {
+export function parseSitemap(xml: string): {
+  urls: string[];
+  sitemapIndexes: string[];
+} {
   const urls: string[] = [];
   const sitemapIndexes: string[] = [];
 
@@ -39,7 +42,7 @@ const MAX_SITEMAP_URLS = 5_000;
 export async function fetchSitemapUrls(
   sitemapUrl: string,
   userAgent: string,
-  visited = new Set<string>()
+  visited = new Set<string>(),
 ): Promise<string[]> {
   if (visited.has(sitemapUrl) || visited.size > 50) return [];
   visited.add(sitemapUrl);

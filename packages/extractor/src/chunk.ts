@@ -6,7 +6,7 @@
  * deterministic and needs no model.
  */
 
-import type { DocumentSection } from '@querynx/types';
+import type { DocumentSection } from "@querynx/types";
 
 /** Rough token estimate: ~4 characters per token for English text. */
 export function estimateTokens(text: string): number {
@@ -41,7 +41,7 @@ const DEFAULT_MAX_CHUNKS = 500;
  * paragraph and word boundaries.
  */
 function splitSentences(text: string): string[] {
-  const normalized = text.replace(/\s+/g, ' ').trim();
+  const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return [];
   const sentences = normalized.split(/(?<=[.!?])\s+(?=[A-Z0-9"'(\[])/);
   return sentences.filter((s) => s.length > 0);
@@ -54,9 +54,13 @@ function splitSentences(text: string): string[] {
 export function chunkText(
   text: string,
   sectionTitle: string | undefined,
-  options: ChunkOptions
+  options: ChunkOptions,
 ): Chunk[] {
-  const { maxTokens, overlapTokens = 0, maxChunks = DEFAULT_MAX_CHUNKS } = options;
+  const {
+    maxTokens,
+    overlapTokens = 0,
+    maxChunks = DEFAULT_MAX_CHUNKS,
+  } = options;
   const sentences = splitSentences(text);
   const chunks: Chunk[] = [];
   let current: string[] = [];
@@ -65,7 +69,7 @@ export function chunkText(
 
   const flush = (endOffset: number) => {
     if (current.length === 0) return;
-    const chunkTextJoined = current.join(' ');
+    const chunkTextJoined = current.join(" ");
     chunks.push({
       text: chunkTextJoined,
       tokens: currentTokens,
@@ -86,7 +90,7 @@ export function chunkText(
       }
       current = overlap;
       currentTokens = overlapTok;
-      start = endOffset - overlap.join(' ').length;
+      start = endOffset - overlap.join(" ").length;
     } else {
       current = [];
       currentTokens = 0;
@@ -98,7 +102,7 @@ export function chunkText(
   for (const sentence of sentences) {
     const tokens = estimateTokens(sentence);
     if (currentTokens + tokens > maxTokens && current.length > 0) {
-      cursor += current.join(' ').length + 1;
+      cursor += current.join(" ").length + 1;
       flush(cursor - 1);
       if (chunks.length >= maxChunks) return chunks;
     }
@@ -122,7 +126,7 @@ export function chunkText(
  */
 export function chunkSections(
   sections: readonly DocumentSection[],
-  options: ChunkOptions
+  options: ChunkOptions,
 ): Chunk[] {
   const all: Chunk[] = [];
   for (const section of sections) {

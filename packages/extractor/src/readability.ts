@@ -6,8 +6,8 @@
  * the extractor never evaluates scripts and treats all text as data.
  */
 
-import { Readability } from '@mozilla/readability';
-import { parseHTML } from 'linkedom';
+import { Readability } from "@mozilla/readability";
+import { parseHTML } from "linkedom";
 
 export interface ReadabilityResult {
   /** Extracted main-content HTML. */
@@ -32,7 +32,10 @@ export interface ReadabilityResult {
  * Run Readability over an HTML document.
  * Returns null when no main content could be identified.
  */
-export function extractWithReadability(html: string, url: string): ReadabilityResult | null {
+export function extractWithReadability(
+  html: string,
+  url: string,
+): ReadabilityResult | null {
   const dom = parseHTML(html);
   const document = dom.document;
 
@@ -54,7 +57,7 @@ export function extractWithReadability(html: string, url: string): ReadabilityRe
     siteName: article.siteName ?? undefined,
     publishedTime: normalizeIsoDate(article.publishedTime),
     excerpt: article.excerpt ?? undefined,
-    lang: document.documentElement?.getAttribute('lang') ?? undefined,
+    lang: document.documentElement?.getAttribute("lang") ?? undefined,
     ...(url ? {} : {}),
   };
 }
@@ -62,12 +65,14 @@ export function extractWithReadability(html: string, url: string): ReadabilityRe
 /** Strip tags and collapse whitespace. */
 export function htmlToText(html: string): string {
   const dom = parseHTML(html);
-  const text = dom.document.documentElement?.textContent ?? '';
-  return text.replace(/\s+/g, ' ').trim();
+  const text = dom.document.documentElement?.textContent ?? "";
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /** Coerce assorted date formats to ISO 8601 or undefined. */
-export function normalizeIsoDate(input: string | undefined | null): string | undefined {
+export function normalizeIsoDate(
+  input: string | undefined | null,
+): string | undefined {
   if (!input) return undefined;
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return undefined;

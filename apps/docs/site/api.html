@@ -130,8 +130,10 @@
 <p>Point existing Tavily clients at your instance by changing the base URL.</p>
 <h3 id="errors">Errors</h3>
 <p>Every error uses one envelope:</p>
-<pre><code class="lang-json">{ &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_ERROR&quot;, &quot;message&quot;: &quot;...&quot; },
-  &quot;requestId&quot;: &quot;uuid&quot; }</code></pre>
+<pre><code class="lang-json">{
+  &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_ERROR&quot;, &quot;message&quot;: &quot;...&quot; },
+  &quot;requestId&quot;: &quot;uuid&quot;
+}</code></pre>
 <p>Codes: VALIDATION_ERROR (400), UNAUTHORIZED (401), RATE_LIMITED (429,</p>
 <p>with retry-after), UPSTREAM_ERROR/PROVIDER_ERROR (502), CANCELLED</p>
 <p>(499), INTERNAL_ERROR (500, details logged server-side with the</p>

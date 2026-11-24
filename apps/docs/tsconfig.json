@@ -5,9 +5,5 @@
     "allowJs": true,
     "checkJs": false
   },
-  "include": [
-    "build.mjs",
-    "docs-src",
-    "test"
-  ]
+  "include": ["build.mjs", "docs-src", "test"]
 }

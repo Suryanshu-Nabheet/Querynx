@@ -6,7 +6,7 @@
  * their /metrics endpoints.
  */
 
-export type MetricKind = 'counter' | 'gauge' | 'histogram';
+export type MetricKind = "counter" | "gauge" | "histogram";
 
 export class MetricsRegistry {
   private readonly counters = new Map<string, number>();
@@ -95,7 +95,7 @@ export class MetricsRegistry {
         lines.push(`${name}_p${p} ${this.percentile(name, p).toFixed(2)}`);
       }
     }
-    return lines.join('\n') + '\n';
+    return lines.join("\n") + "\n";
   }
 
   /** Reset everything (test hook). */

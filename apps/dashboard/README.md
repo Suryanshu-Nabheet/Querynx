@@ -6,14 +6,14 @@ charts: every number on every page is fetched from your instance.
 
 ## Pages
 
-| Route | Purpose |
-|---|---|
-| `/` | Overview — API health, provider census, cache hit rate, index size |
-| `/search` | Federated search playground with freshness/max-results controls |
-| `/research` | Bounded research runner with evidence, gaps and termination reasons |
-| `/extract` | Multi-URL extraction with metadata display |
-| `/providers` | Circuit-breaker state, success rates and latencies per provider |
-| `/index` | Native corpus BM25 search with matched-term highlighting |
+| Route        | Purpose                                                             |
+| ------------ | ------------------------------------------------------------------- |
+| `/`          | Overview — API health, provider census, cache hit rate, index size  |
+| `/search`    | Federated search playground with freshness/max-results controls     |
+| `/research`  | Bounded research runner with evidence, gaps and termination reasons |
+| `/extract`   | Multi-URL extraction with metadata display                          |
+| `/providers` | Circuit-breaker state, success rates and latencies per provider     |
+| `/index`     | Native corpus BM25 search with matched-term highlighting            |
 
 ## Connecting
 

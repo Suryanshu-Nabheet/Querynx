@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import ConnectionBar from '../../components/ConnectionBar';
-import { apiPost, type ExtractItemView } from '../../lib/api';
+import { useState } from "react";
+import ConnectionBar from "../../components/ConnectionBar";
+import { apiPost, type ExtractItemView } from "../../lib/api";
 
 interface ExtractItem {
   url: string;
@@ -15,19 +15,26 @@ interface ExtractItem {
 }
 
 export default function ExtractPage() {
-  const [urls, setUrls] = useState('');
+  const [urls, setUrls] = useState("");
   const [results, setResults] = useState<ExtractItem[]>([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
-    const list = urls.split(/\s+/).map((u) => u.trim()).filter(Boolean).slice(0, 10);
+    const list = urls
+      .split(/\s+/)
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .slice(0, 10);
     if (list.length === 0) return;
     setLoading(true);
-    setError('');
+    setError("");
     setResults([]);
     try {
-      const response = await apiPost<{ results: ExtractItemView[] }>('/v1/extract', { urls: list });
+      const response = await apiPost<{ results: ExtractItemView[] }>(
+        "/v1/extract",
+        { urls: list },
+      );
       setResults(
         response.results.map((r) => ({
           url: r.url,
@@ -37,10 +44,10 @@ export default function ExtractPage() {
           error: r.error,
           author: r.document?.metadata?.author,
           publishedAt: r.document?.metadata?.publishedAt,
-        }))
+        })),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'extraction failed');
+      setError(err instanceof Error ? err.message : "extraction failed");
     }
     setLoading(false);
   };
@@ -48,7 +55,9 @@ export default function ExtractPage() {
   return (
     <div>
       <h1>Extraction playground</h1>
-      <p className="sub">Clean content, metadata, tables and links from any page (max 10 URLs)</p>
+      <p className="sub">
+        Clean content, metadata, tables and links from any page (max 10 URLs)
+      </p>
       <ConnectionBar />
 
       <div className="panel">
@@ -61,7 +70,7 @@ export default function ExtractPage() {
         />
         <p>
           <button onClick={() => void run()} disabled={loading || !urls.trim()}>
-            {loading ? 'Extracting…' : 'Extract'}
+            {loading ? "Extracting…" : "Extract"}
           </button>
         </p>
       </div>
@@ -72,18 +81,24 @@ export default function ExtractPage() {
         <div className="panel" key={r.url}>
           {r.ok ? (
             <>
-              <div className="title" style={{ fontWeight: 700 }}>{r.title ?? r.url}</div>
-              <a href={r.url} style={{ color: 'var(--accent)', fontSize: 12 }}>{r.url}</a>
+              <div className="title" style={{ fontWeight: 700 }}>
+                {r.title ?? r.url}
+              </div>
+              <a href={r.url} style={{ color: "var(--accent)", fontSize: 12 }}>
+                {r.url}
+              </a>
               {(r.author || r.publishedAt) && (
                 <p className="sub">
-                  {r.author ? `by ${r.author} ` : ''}
-                  {r.publishedAt ? `· ${r.publishedAt.slice(0, 10)}` : ''}
+                  {r.author ? `by ${r.author} ` : ""}
+                  {r.publishedAt ? `· ${r.publishedAt.slice(0, 10)}` : ""}
                 </p>
               )}
-              <pre className="evidence">{(r.content ?? '').slice(0, 5000)}</pre>
+              <pre className="evidence">{(r.content ?? "").slice(0, 5000)}</pre>
             </>
           ) : (
-            <p className="error">FAILED {r.url}: {r.error}</p>
+            <p className="error">
+              FAILED {r.url}: {r.error}
+            </p>
           )}
         </div>
       ))}

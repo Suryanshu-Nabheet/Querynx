@@ -4,7 +4,7 @@
  * plaintext is shown exactly once at issuance.
  */
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 export interface ApiKeyRecord {
   /** SHA-256 of the plaintext key (hex). */
@@ -26,7 +26,7 @@ export interface IssuedKey {
 }
 
 export function hashApiKey(key: string): string {
-  return createHash('sha256').update(key).digest('hex');
+  return createHash("sha256").update(key).digest("hex");
 }
 
 /**
@@ -38,7 +38,7 @@ export class ApiKeyStore {
 
   /** Issue a new key with the given label. */
   issue(label: string, rateLimitPerMinute?: number): IssuedKey {
-    const key = `qnx_${randomBytes(24).toString('base64url')}`;
+    const key = `qnx_${randomBytes(24).toString("base64url")}`;
     const record: ApiKeyRecord = {
       hash: hashApiKey(key),
       label,
@@ -61,8 +61,8 @@ export class ApiKeyStore {
   /** Non-lookup API for callers that store hashes externally:
    * verify a presented key against a known hash, constant-time. */
   verifyAgainstHash(key: string, expectedHash: string): boolean {
-    const actual = Buffer.from(hashApiKey(key), 'hex');
-    const expected = Buffer.from(expectedHash, 'hex');
+    const actual = Buffer.from(hashApiKey(key), "hex");
+    const expected = Buffer.from(expectedHash, "hex");
     if (actual.length !== expected.length) return false;
     return timingSafeEqual(actual, expected);
   }

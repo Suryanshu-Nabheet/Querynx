@@ -3,13 +3,13 @@
  * security-relevant events (key use, denials, blocked URLs).
  */
 
-import { redactSecrets } from './redact.js';
+import { redactSecrets } from "./redact.js";
 
 export interface AuditEvent {
   timestamp: string;
   type: string;
   actor: string;
-  outcome: 'allowed' | 'denied' | 'error';
+  outcome: "allowed" | "denied" | "error";
   details: Record<string, unknown>;
 }
 
@@ -28,8 +28,8 @@ export class AuditLog {
   record(
     type: string,
     actor: string,
-    outcome: AuditEvent['outcome'],
-    details: Record<string, unknown> = {}
+    outcome: AuditEvent["outcome"],
+    details: Record<string, unknown> = {},
   ): void {
     const event: AuditEvent = {
       timestamp: new Date().toISOString(),
@@ -50,7 +50,7 @@ export class AuditLog {
   }
 
   /** Events filtered by outcome. */
-  byOutcome(outcome: AuditEvent['outcome']): readonly AuditEvent[] {
+  byOutcome(outcome: AuditEvent["outcome"]): readonly AuditEvent[] {
     return this.events.filter((e) => e.outcome === outcome);
   }
 

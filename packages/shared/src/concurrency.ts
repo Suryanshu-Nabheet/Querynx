@@ -18,7 +18,7 @@ export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
   worker: (item: T, index: number) => Promise<R>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<R[]> {
   if (items.length === 0) return [];
   const safeLimit = Math.max(1, Math.min(limit, items.length));
@@ -36,7 +36,7 @@ export async function mapWithConcurrency<T, R>(
 
   const runners = Array.from({ length: safeLimit }, () => runOne());
   await Promise.all(runners);
-  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   return results;
 }
 
@@ -47,12 +47,17 @@ export async function mapWithConcurrency<T, R>(
 export async function runWithConcurrency(
   tasks: ReadonlyArray<() => Promise<void>>,
   limit: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<void> {
-  await mapWithConcurrency(tasks, limit, async (task) => {
-    await task();
-    return undefined;
-  }, signal);
+  await mapWithConcurrency(
+    tasks,
+    limit,
+    async (task) => {
+      await task();
+      return undefined;
+    },
+    signal,
+  );
 }
 
 /**
@@ -121,14 +126,17 @@ export class Semaphore {
  * queue requests — callers decide how to handle exhaustion (reject or wait).
  */
 export class TokenBucketRateLimiter {
-  private readonly buckets = new Map<string, { tokens: number; last: number }>();
+  private readonly buckets = new Map<
+    string,
+    { tokens: number; last: number }
+  >();
 
   constructor(
     private readonly capacity: number,
-    private readonly refillPerSecond: number
+    private readonly refillPerSecond: number,
   ) {
     if (capacity <= 0 || refillPerSecond <= 0) {
-      throw new Error('Rate limiter capacity and refill must be positive');
+      throw new Error("Rate limiter capacity and refill must be positive");
     }
   }
 
@@ -140,7 +148,10 @@ export class TokenBucketRateLimiter {
       this.buckets.set(key, bucket);
     }
     const elapsed = (now - bucket.last) / 1000;
-    bucket.tokens = Math.min(this.capacity, bucket.tokens + elapsed * this.refillPerSecond);
+    bucket.tokens = Math.min(
+      this.capacity,
+      bucket.tokens + elapsed * this.refillPerSecond,
+    );
     bucket.last = now;
     if (bucket.tokens >= 1) {
       bucket.tokens -= 1;
@@ -154,8 +165,13 @@ export class TokenBucketRateLimiter {
     const bucket = this.buckets.get(key);
     if (!bucket) return 0;
     const elapsed = (now - bucket.last) / 1000;
-    const tokens = Math.min(this.capacity, bucket.tokens + elapsed * this.refillPerSecond);
-    return tokens >= 1 ? 0 : Math.ceil(((1 - tokens) / this.refillPerSecond) * 1000);
+    const tokens = Math.min(
+      this.capacity,
+      bucket.tokens + elapsed * this.refillPerSecond,
+    );
+    return tokens >= 1
+      ? 0
+      : Math.ceil(((1 - tokens) / this.refillPerSecond) * 1000);
   }
 }
 
@@ -163,7 +179,11 @@ export class TokenBucketRateLimiter {
  * Compute backoff delay with exponential growth and full jitter.
  * @param attempt 0-based attempt number
  */
-export function backoffDelayMs(attempt: number, baseMs = 500, maxMs = 30_000): number {
+export function backoffDelayMs(
+  attempt: number,
+  baseMs = 500,
+  maxMs = 30_000,
+): number {
   const exp = Math.min(baseMs * 2 ** attempt, maxMs);
   return Math.floor(Math.random() * exp);
 }
@@ -180,12 +200,18 @@ export async function retryWithBackoff<T>(
     maxMs?: number;
     signal?: AbortSignal;
     retryOn?: (err: unknown) => boolean;
-  } = {}
+  } = {},
 ): Promise<T> {
-  const { maxAttempts = 3, baseMs = 500, maxMs = 30_000, signal, retryOn } = options;
+  const {
+    maxAttempts = 3,
+    baseMs = 500,
+    maxMs = 30_000,
+    signal,
+    retryOn,
+  } = options;
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     try {
       return await op(attempt);
     } catch (err) {
@@ -205,16 +231,16 @@ export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let onAbort: (() => void) | undefined;
     const timer = setTimeout(() => {
-      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+      if (signal && onAbort) signal.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
     if (signal) {
       onAbort = () => {
         clearTimeout(timer);
-        reject(new DOMException('Aborted', 'AbortError'));
+        reject(new DOMException("Aborted", "AbortError"));
       };
       if (signal.aborted) onAbort();
-      else signal.addEventListener('abort', onAbort, { once: true });
+      else signal.addEventListener("abort", onAbort, { once: true });
     }
   });
 }
@@ -227,39 +253,39 @@ export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 export class CircuitBreaker {
   private failures = 0;
   private openedAt = 0;
-  private state: 'closed' | 'open' | 'half-open' = 'closed';
+  private state: "closed" | "open" | "half-open" = "closed";
 
   constructor(
     private readonly threshold: number,
-    private readonly resetMs: number
+    private readonly resetMs: number,
   ) {
-    if (threshold < 1) throw new Error('Circuit threshold must be >= 1');
+    if (threshold < 1) throw new Error("Circuit threshold must be >= 1");
   }
 
   /** Current state. */
-  get status(): 'closed' | 'open' | 'half-open' {
-    if (this.state === 'open' && Date.now() - this.openedAt >= this.resetMs) {
-      return 'half-open';
+  get status(): "closed" | "open" | "half-open" {
+    if (this.state === "open" && Date.now() - this.openedAt >= this.resetMs) {
+      return "half-open";
     }
     return this.state;
   }
 
   /** Whether requests should currently be attempted. */
   get allowed(): boolean {
-    return this.status !== 'open';
+    return this.status !== "open";
   }
 
   /** Record a success. */
   success(): void {
     this.failures = 0;
-    this.state = 'closed';
+    this.state = "closed";
   }
 
   /** Record a failure. */
   failure(): void {
     this.failures++;
     if (this.failures >= this.threshold) {
-      this.state = 'open';
+      this.state = "open";
       this.openedAt = Date.now();
     }
   }
@@ -272,7 +298,7 @@ export class CircuitBreaker {
 export class CircuitOpenError extends Error {
   constructor(name: string) {
     super(`Circuit breaker open for ${name}`);
-    this.name = 'CircuitOpenError';
+    this.name = "CircuitOpenError";
   }
 }
 
@@ -280,7 +306,7 @@ export class CircuitOpenError extends Error {
 export async function withCircuitBreaker<T>(
   breaker: CircuitBreaker,
   name: string,
-  op: () => Promise<T>
+  op: () => Promise<T>,
 ): Promise<T> {
   if (!breaker.allowed) throw new CircuitOpenError(name);
   try {
@@ -288,7 +314,7 @@ export async function withCircuitBreaker<T>(
     breaker.success();
     return result;
   } catch (err) {
-    if (!(err instanceof DOMException && err.name === 'AbortError')) {
+    if (!(err instanceof DOMException && err.name === "AbortError")) {
       breaker.failure();
     }
     throw err;

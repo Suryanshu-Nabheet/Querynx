@@ -7,16 +7,18 @@
  * improve federated recall.
  */
 
-import type { SearchCategory, Freshness } from '@querynx/types';
+import type { SearchCategory, Freshness } from "@querynx/types";
 
 /** Normalize raw query text: trim, collapse whitespace, strip control. */
 export function normalizeQuery(raw: string): string {
-  return raw
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 500);
+  return (
+    raw
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 500)
+  );
 }
 
 export interface QueryClassification {
@@ -42,29 +44,50 @@ export function classifyQuery(query: string): QueryClassification {
   const siteHint = siteMatch?.[1];
 
   const isQuestion =
-    /^(what|who|when|where|why|how|which|is|are|can|does|do|did)\b/.test(lower) ||
-    lower.endsWith('?');
+    /^(what|who|when|where|why|how|which|is|are|can|does|do|did)\b/.test(
+      lower,
+    ) || lower.endsWith("?");
 
-  const freshTerms = ['latest', 'news', 'today', 'recent', 'breaking', 'now', '2025', '2026', 'current'];
+  const freshTerms = [
+    "latest",
+    "news",
+    "today",
+    "recent",
+    "breaking",
+    "now",
+    "2025",
+    "2026",
+    "current",
+  ];
   const wantsFresh = freshTerms.some((t) => lower.includes(t));
-  if (wantsFresh) signals.push('freshness-term');
+  if (wantsFresh) signals.push("freshness-term");
 
-  let category: SearchCategory = 'web';
-  if (/(arxiv|paper|study|research|journal|publication|doi|conference)/.test(lower)) {
-    category = 'academic';
-    signals.push('academic-terms');
-  } else if (/(github|stackoverflow|code|function|api reference|npm|library|sdk)/.test(lower)) {
-    category = 'code';
-    signals.push('code-terms');
-  } else if (/(docs|documentation|tutorial|guide|manual|reference)/.test(lower)) {
-    category = 'docs';
-    signals.push('docs-terms');
+  let category: SearchCategory = "web";
+  if (
+    /(arxiv|paper|study|research|journal|publication|doi|conference)/.test(
+      lower,
+    )
+  ) {
+    category = "academic";
+    signals.push("academic-terms");
+  } else if (
+    /(github|stackoverflow|code|function|api reference|npm|library|sdk)/.test(
+      lower,
+    )
+  ) {
+    category = "code";
+    signals.push("code-terms");
+  } else if (
+    /(docs|documentation|tutorial|guide|manual|reference)/.test(lower)
+  ) {
+    category = "docs";
+    signals.push("docs-terms");
   } else if (wantsFresh && /(news|breaking|announcement)/.test(lower)) {
-    category = 'news';
-    signals.push('news-terms');
+    category = "news";
+    signals.push("news-terms");
   }
 
-  if (isQuestion) signals.push('question-form');
+  if (isQuestion) signals.push("question-form");
 
   return { category, isQuestion, wantsFresh, siteHint, signals };
 }
@@ -82,15 +105,15 @@ export function extractOperators(query: string): {
   let m: RegExpExecArray | null;
   while ((m = siteGlobal.exec(query)) !== null) {
     includeDomains.push(m[1]!);
-    cleaned = cleaned.replace(m[0], ' ');
+    cleaned = cleaned.replace(m[0], " ");
   }
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  cleaned = cleaned.replace(/\s+/g, " ").trim();
 
   let freshness: Freshness | undefined;
-  if (/\b(today|last 24 hours?)\b/i.test(cleaned)) freshness = 'day';
-  else if (/\b(this week|last week)\b/i.test(cleaned)) freshness = 'week';
-  else if (/\b(this month|last month)\b/i.test(cleaned)) freshness = 'month';
-  else if (/\b(this year|last year)\b/i.test(cleaned)) freshness = 'year';
+  if (/\b(today|last 24 hours?)\b/i.test(cleaned)) freshness = "day";
+  else if (/\b(this week|last week)\b/i.test(cleaned)) freshness = "week";
+  else if (/\b(this month|last month)\b/i.test(cleaned)) freshness = "month";
+  else if (/\b(this year|last year)\b/i.test(cleaned)) freshness = "year";
 
   return {
     cleaned,
@@ -120,16 +143,16 @@ export function expandQuery(query: string, category: SearchCategory): string[] {
   }
 
   switch (category) {
-    case 'academic':
+    case "academic":
       variants.add(`${query} paper`);
       break;
-    case 'code':
+    case "code":
       variants.add(`${query} example`);
       break;
-    case 'docs':
+    case "docs":
       variants.add(`${query} documentation`);
       break;
-    case 'news':
+    case "news":
       variants.add(`${query} latest`);
       break;
     default:
@@ -159,7 +182,7 @@ export function parseQuery(raw: string): ParsedQuery {
     cleaned,
     classification,
     includeDomains,
-    freshness: freshness ?? (classification.wantsFresh ? 'month' : undefined),
+    freshness: freshness ?? (classification.wantsFresh ? "month" : undefined),
     expansions: expandQuery(cleaned, classification.category),
     decompositions: decomposeQuery(cleaned),
   };

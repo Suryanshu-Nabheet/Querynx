@@ -10,22 +10,37 @@
  * Mean Reciprocal Rank: average of 1/rank of the first relevant result.
  * 1.0 means the top result is always relevant.
  */
-export function reciprocalRank(ranked: readonly string[], relevant: ReadonlySet<string>): number {
+export function reciprocalRank(
+  ranked: readonly string[],
+  relevant: ReadonlySet<string>,
+): number {
   for (let i = 0; i < ranked.length; i++) {
     if (relevant.has(ranked[i]!)) return 1 / (i + 1);
   }
   return 0;
 }
 
-export function mrr(queries: ReadonlyArray<{ ranked: readonly string[]; relevant: ReadonlySet<string> }>): number {
+export function mrr(
+  queries: ReadonlyArray<{
+    ranked: readonly string[];
+    relevant: ReadonlySet<string>;
+  }>,
+): number {
   if (queries.length === 0) return 0;
-  return queries.reduce((sum, q) => sum + reciprocalRank(q.ranked, q.relevant), 0) / queries.length;
+  return (
+    queries.reduce((sum, q) => sum + reciprocalRank(q.ranked, q.relevant), 0) /
+    queries.length
+  );
 }
 
 /**
  * Recall@K: fraction of relevant documents present in the top K.
  */
-export function recallAtK(ranked: readonly string[], relevant: ReadonlySet<string>, k: number): number {
+export function recallAtK(
+  ranked: readonly string[],
+  relevant: ReadonlySet<string>,
+  k: number,
+): number {
   if (relevant.size === 0) return 0;
   const topK = new Set(ranked.slice(0, k));
   let hits = 0;
@@ -38,7 +53,11 @@ export function recallAtK(ranked: readonly string[], relevant: ReadonlySet<strin
 /**
  * Precision@K: fraction of top-K results that are relevant.
  */
-export function precisionAtK(ranked: readonly string[], relevant: ReadonlySet<string>, k: number): number {
+export function precisionAtK(
+  ranked: readonly string[],
+  relevant: ReadonlySet<string>,
+  k: number,
+): number {
   if (ranked.length === 0) return 0;
   const topK = ranked.slice(0, k);
   let hits = 0;
@@ -52,7 +71,11 @@ export function precisionAtK(ranked: readonly string[], relevant: ReadonlySet<st
  * Normalized Discounted Cumulative Gain at K (binary relevance).
  * DCG@K = Σ rel_i / log2(i + 1); NDCG normalizes by the ideal DCG.
  */
-export function ndcgAtK(ranked: readonly string[], relevant: ReadonlySet<string>, k: number): number {
+export function ndcgAtK(
+  ranked: readonly string[],
+  relevant: ReadonlySet<string>,
+  k: number,
+): number {
   const topK = ranked.slice(0, k);
   let dcg = 0;
   for (let i = 0; i < topK.length; i++) {
@@ -87,7 +110,9 @@ export interface EvaluationQuery {
   relevant: ReadonlySet<string>;
 }
 
-export function evaluate(queries: readonly EvaluationQuery[]): EvaluationReport {
+export function evaluate(
+  queries: readonly EvaluationQuery[],
+): EvaluationReport {
   if (queries.length === 0) {
     return {
       queryCount: 0,

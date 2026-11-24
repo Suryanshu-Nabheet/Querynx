@@ -9,13 +9,13 @@
  * produce a connection to a private address.
  */
 
-import { lookup as dnsLookup } from 'node:dns/promises';
-import type { LookupAddress } from 'node:dns';
+import { lookup as dnsLookup } from "node:dns/promises";
+import type { LookupAddress } from "node:dns";
 
 export class DnsValidationError extends Error {
   constructor(hostname: string, reason: string) {
     super(`Refused to resolve "${hostname}": ${reason}`);
-    this.name = 'DnsValidationError';
+    this.name = "DnsValidationError";
   }
 }
 
@@ -28,7 +28,8 @@ export class DnsValidationError extends Error {
  * decision owned by the operator — never settable per API request —
  * so API consumers cannot probe internal networks.
  */
-let allowPrivateNetworks = process.env.QUERYNX_ALLOW_PRIVATE_NETWORKS === 'true';
+let allowPrivateNetworks =
+  process.env.QUERYNX_ALLOW_PRIVATE_NETWORKS === "true";
 
 /** Read the current private-network policy. */
 export function isPrivateNetworksAllowed(): boolean {
@@ -47,7 +48,7 @@ export function setPrivateNetworkPolicy(allow: boolean): boolean {
 
 /** Whether an IPv4 literal is public (routable, not reserved). */
 export function isPublicIpv4(ip: string): boolean {
-  const parts = ip.split('.');
+  const parts = ip.split(".");
   if (parts.length !== 4) return false;
   const octets: number[] = [];
   for (const p of parts) {
@@ -79,7 +80,7 @@ export function isPublicIpv4(ip: string): boolean {
 export function isPublicIpv6(ip: string): boolean {
   const lower = ip.toLowerCase();
   // Unspecified / loopback
-  if (lower === '::' || lower === '::1') return false;
+  if (lower === "::" || lower === "::1") return false;
   // IPv4-mapped ::ffff:a.b.c.d — validate the embedded v4
   const v4mapped = lower.match(/^(?:::ffff:)(\d+\.\d+\.\d+\.\d+)$/);
   if (v4mapped) return isPublicIpv4(v4mapped[1]!);
@@ -87,11 +88,17 @@ export function isPublicIpv6(ip: string): boolean {
   const v4compat = lower.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
   if (v4compat) return isPublicIpv4(v4compat[1]!);
   // Unique local fc00::/7
-  if (lower.startsWith('fc') || lower.startsWith('fd')) return false;
+  if (lower.startsWith("fc") || lower.startsWith("fd")) return false;
   // Link-local fe80::/10
-  if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return false;
+  if (
+    lower.startsWith("fe8") ||
+    lower.startsWith("fe9") ||
+    lower.startsWith("fea") ||
+    lower.startsWith("feb")
+  )
+    return false;
   // 6to4 2002::/16 embeds v4; 6to4 to private v4 is not meaningful but block mapped metadata style
-  if (lower.startsWith('2002:')) {
+  if (lower.startsWith("2002:")) {
     const hextet = lower.slice(5, 9);
     const a = parseInt(hextet.slice(0, 2), 16);
     const b = parseInt(hextet.slice(2, 4), 16);
@@ -103,7 +110,7 @@ export function isPublicIpv6(ip: string): boolean {
 
 /** Whether a resolved IP (v4 or v6) is safe for outbound fetching. */
 export function isPublicIp(ip: string): boolean {
-  return ip.includes(':') ? isPublicIpv6(ip) : isPublicIpv4(ip);
+  return ip.includes(":") ? isPublicIpv6(ip) : isPublicIpv4(ip);
 }
 
 /**
@@ -114,13 +121,17 @@ export function isPublicIp(ip: string): boolean {
 export function validatingLookup(
   hostname: string,
   options: { family?: number; all?: boolean } & Record<string, unknown>,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string,
+    family: number,
+  ) => void,
 ): void {
   dnsLookup(hostname, { all: true, verbatim: true })
     .then((addresses: LookupAddress[]) => {
       if (addresses.length === 0) {
-        const err = new DnsValidationError(hostname, 'no addresses returned');
-        callback(err, '', 0);
+        const err = new DnsValidationError(hostname, "no addresses returned");
+        callback(err, "", 0);
         return;
       }
       const safe = allowPrivateNetworks
@@ -129,9 +140,9 @@ export function validatingLookup(
       if (safe.length === 0) {
         const err = new DnsValidationError(
           hostname,
-          `resolved to non-public address(es): ${addresses.map((a) => a.address).join(', ')}`
+          `resolved to non-public address(es): ${addresses.map((a) => a.address).join(", ")}`,
         );
-        callback(err, '', 0);
+        callback(err, "", 0);
         return;
       }
       // Hostnames resolving to a mix of public and private addresses get
@@ -139,6 +150,6 @@ export function validatingLookup(
       callback(null, safe[0]!.address, safe[0]!.family);
     })
     .catch((err: NodeJS.ErrnoException) => {
-      callback(err, '', 0);
+      callback(err, "", 0);
     });
 }

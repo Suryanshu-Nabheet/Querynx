@@ -12,7 +12,7 @@
  * Unreachable or unparseable robots files mean "no rules" (allow all).
  */
 
-import { fetchUrl } from '@querynx/fetcher';
+import { fetchUrl } from "@querynx/fetcher";
 
 export interface RobotsRule {
   path: string;
@@ -43,15 +43,15 @@ export class RobotsFile {
     let order = 0;
 
     for (const rawLine of raw.split(/\r?\n/)) {
-      const line = rawLine.split('#')[0]!.trim();
+      const line = rawLine.split("#")[0]!.trim();
       if (!line) continue;
 
-      const colon = line.indexOf(':');
+      const colon = line.indexOf(":");
       if (colon === -1) continue;
       const field = line.slice(0, colon).trim().toLowerCase();
       const value = line.slice(colon + 1).trim();
 
-      if (field === 'user-agent') {
+      if (field === "user-agent") {
         if (!current || !lastWasAgent) {
           current = { agents: new Set(), rules: [], order: order++ };
           this.groups.push(current);
@@ -65,20 +65,20 @@ export class RobotsFile {
       lastWasAgent = false;
 
       switch (field) {
-        case 'disallow':
+        case "disallow":
           if (value) current.rules.push({ path: value, allow: false });
           break;
-        case 'allow':
+        case "allow":
           if (value) current.rules.push({ path: value, allow: true });
           break;
-        case 'crawl-delay': {
+        case "crawl-delay": {
           const seconds = Number.parseFloat(value);
           if (Number.isFinite(seconds) && seconds >= 0) {
             current.crawlDelayMs = Math.round(seconds * 1000);
           }
           break;
         }
-        case 'sitemap':
+        case "sitemap":
           if (/^https?:\/\//i.test(value)) this.sitemaps.push(value);
           break;
         default:
@@ -103,11 +103,15 @@ export class RobotsFile {
       for (const agent of group.agents) {
         let score = -1;
         if (agent === ua) score = 1000;
-        else if (ua.startsWith(agent) && agent.length >= 3) score = agent.length;
-        else if (agent === '*') score = 1;
+        else if (ua.startsWith(agent) && agent.length >= 3)
+          score = agent.length;
+        else if (agent === "*") score = 1;
 
         // Earlier file order wins ties.
-        if (score > bestScore || (score === bestScore && best && group.order < best.order)) {
+        if (
+          score > bestScore ||
+          (score === bestScore && best && group.order < best.order)
+        ) {
           bestScore = score;
           best = group;
         }
@@ -151,20 +155,20 @@ export class RobotsFile {
  * A rule with no wildcard must be a path prefix.
  */
 export function matchesPath(path: string, pattern: string): boolean {
-  if (pattern === '') return true;
+  if (pattern === "") return true;
 
-  if (!pattern.includes('*') && !pattern.endsWith('$')) {
+  if (!pattern.includes("*") && !pattern.endsWith("$")) {
     return path.startsWith(pattern);
   }
 
-  const anchored = pattern.endsWith('$');
+  const anchored = pattern.endsWith("$");
   const body = anchored ? pattern.slice(0, -1) : pattern;
-  const segments = body.split('*');
+  const segments = body.split("*");
 
   let position = 0;
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i]!;
-    if (segment === '') continue;
+    if (segment === "") continue;
     const index = path.indexOf(segment, position);
     if (index === -1) return false;
     // First segment must match at position 0 (prefix semantics).
@@ -186,7 +190,7 @@ const robotsCache = new Map<string, RobotsFile>();
 export async function getRobotsFor(
   url: string,
   userAgent: string,
-  forceRefetch = false
+  forceRefetch = false,
 ): Promise<RobotsFile> {
   const origin = new URL(url).origin;
   const cacheKey = `${origin}|${userAgent}`;
@@ -203,12 +207,12 @@ export async function getRobotsFor(
       userAgent,
     });
     if (response.statusCode >= 500) {
-      robots = new RobotsFile('');
+      robots = new RobotsFile("");
     } else {
       robots = new RobotsFile(response.body);
     }
   } catch {
-    robots = new RobotsFile('');
+    robots = new RobotsFile("");
   }
   robotsCache.set(cacheKey, robots);
   return robots;

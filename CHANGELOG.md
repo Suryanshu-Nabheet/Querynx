@@ -6,6 +6,7 @@ at 0.1.0.
 ## [0.1.0] — Foundation
 
 ### Added
+
 - Monorepo scaffold (pnpm workspaces, Turborepo, strict TypeScript, CI).
 - `@querynx/types` — provider-agnostic search, extraction and crawl
   domain contracts.
@@ -67,4 +68,3 @@ at 0.1.0.
   and a measured search-quality harness — MRR 0.88, Recall@10 1.0,
   NDCG@10 0.80 on the fixture corpus, with CI-enforced thresholds.
 - 213 tests across 12 packages; CI green on GitHub Actions.
-

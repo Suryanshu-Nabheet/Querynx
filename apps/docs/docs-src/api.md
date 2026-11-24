@@ -23,16 +23,16 @@ Federated search across all configured providers, merged with
 Reciprocal Rank Fusion, deduplicated by canonical URL and content
 fingerprint.
 
-| Field | Type | Default | Notes |
-|---|---|---|---|
-| query | string | — | required |
-| maxResults | int | 10 | 1-50 |
-| includeDomains | string[] | — | restrict to these domains |
-| excludeDomains | string[] | — | drop these domains |
-| language / region | string | — | ISO codes |
-| freshness | enum | any | day, week, month, year |
-| category | enum | web | web, news, academic, code, docs |
-| providers | string[] | all | restrict providers |
+| Field             | Type     | Default | Notes                           |
+| ----------------- | -------- | ------- | ------------------------------- |
+| query             | string   | —       | required                        |
+| maxResults        | int      | 10      | 1-50                            |
+| includeDomains    | string[] | —       | restrict to these domains       |
+| excludeDomains    | string[] | —       | drop these domains              |
+| language / region | string   | —       | ISO codes                       |
+| freshness         | enum     | any     | day, week, month, year          |
+| category          | enum     | web     | web, news, academic, code, docs |
+| providers         | string[] | all     | restrict providers              |
 
 Response: `{ results, query, generatedAt, diagnostics, requestId }` —
 `diagnostics` reports per-provider attempts, success counts and
@@ -57,12 +57,12 @@ SSE stream: `start`, `partial` (per provider, ahead of the merge),
 
 ### POST /v1/extract
 
-| Field | Type | Notes |
-|---|---|---|
-| urls | string[] | 1-10 absolute http(s) URLs |
-| format | enum | markdown (default), html, text |
-| includeLinks / includeTables / includeMetadata | bool | optional extras |
-| maxContentLength | int | cap in characters |
+| Field                                          | Type     | Notes                          |
+| ---------------------------------------------- | -------- | ------------------------------ |
+| urls                                           | string[] | 1-10 absolute http(s) URLs     |
+| format                                         | enum     | markdown (default), html, text |
+| includeLinks / includeTables / includeMetadata | bool     | optional extras                |
+| maxContentLength                               | int      | cap in characters              |
 
 Returns `{ results }` with per-URL ok/error. SSRF-protected: private
 networks, loopback and cloud metadata endpoints are rejected with 400.
@@ -89,11 +89,11 @@ Bounded autonomous research: plans queries, searches, extracts pages,
 deduplicates evidence and synthesizes findings — deterministically
 (no LLM required).
 
-| Field | Type | Notes |
-|---|---|---|
-| objective | string | the research question |
-| mode | enum | fast, standard, advanced, deep, academic, technical, documentation |
-| maxQueries / maxPages / timeMs | int | override the mode budgets |
+| Field                          | Type   | Notes                                                              |
+| ------------------------------ | ------ | ------------------------------------------------------------------ |
+| objective                      | string | the research question                                              |
+| mode                           | enum   | fast, standard, advanced, deep, academic, technical, documentation |
+| maxQueries / maxPages / timeMs | int    | override the mode budgets                                          |
 
 The report contains `findings`, `evidence` (with source URLs and
 relevance), `gaps` (unresolved questions), `usage` and an honest
@@ -110,20 +110,20 @@ report.
 
 Async execution over the durable queue.
 
-| Endpoint | Purpose |
-|---|---|
-| POST /v1/jobs | Submit crawl/index/research (202 + poll handle) |
-| GET /v1/jobs/:id | Poll status, attempts, result |
-| DELETE /v1/jobs/:id | Cancel pending/running jobs |
-| GET /v1/jobs | Queue stats + recent dead letters |
+| Endpoint            | Purpose                                         |
+| ------------------- | ----------------------------------------------- |
+| POST /v1/jobs       | Submit crawl/index/research (202 + poll handle) |
+| GET /v1/jobs/:id    | Poll status, attempts, result                   |
+| DELETE /v1/jobs/:id | Cancel pending/running jobs                     |
+| GET /v1/jobs        | Queue stats + recent dead letters               |
 
 ## System
 
-| Endpoint | Purpose |
-|---|---|
-| GET /health | Liveness |
-| GET /ready | Readiness + provider/cache state |
-| GET /metrics | Prometheus text format |
+| Endpoint          | Purpose                                       |
+| ----------------- | --------------------------------------------- |
+| GET /health       | Liveness                                      |
+| GET /ready        | Readiness + provider/cache state              |
+| GET /metrics      | Prometheus text format                        |
 | GET /v1/providers | Circuit state, success rate, P50 per provider |
 
 ## Tavily-compatible surface
@@ -138,8 +138,10 @@ Point existing Tavily clients at your instance by changing the base URL.
 Every error uses one envelope:
 
 ```json
-{ "error": { "code": "VALIDATION_ERROR", "message": "..." },
-  "requestId": "uuid" }
+{
+  "error": { "code": "VALIDATION_ERROR", "message": "..." },
+  "requestId": "uuid"
+}
 ```
 
 Codes: VALIDATION_ERROR (400), UNAUTHORIZED (401), RATE_LIMITED (429,

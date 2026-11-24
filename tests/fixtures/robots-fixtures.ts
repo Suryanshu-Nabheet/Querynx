@@ -30,7 +30,7 @@ Disallow: /*/session/
 Disallow: /*.pdf$
 Allow: /*/public/`;
 
-export const ROBOTS_EMPTY = '';
+export const ROBOTS_EMPTY = "";
 
 export const ROBOTS_MALFORMED = `this is not robots
 : novalue

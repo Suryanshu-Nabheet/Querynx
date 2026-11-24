@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import type { SearchResult } from '@querynx/types';
-import { ResearchEngine } from '../src/engine.js';
-import type { ResearchEvent, ResearchReport, SearchFn } from '../src/index.js';
+import { describe, expect, it } from "vitest";
+import type { SearchResult } from "@querynx/types";
+import { ResearchEngine } from "../src/engine.js";
+import type { ResearchEvent, ResearchReport, SearchFn } from "../src/index.js";
 
 /** Scripted search: returns canned results per query keyword. */
-function makeSearch(cases: Record<string, SearchResult[]>): SearchFn & { calls: string[] } {
+function makeSearch(
+  cases: Record<string, SearchResult[]>,
+): SearchFn & { calls: string[] } {
   const calls: string[] = [];
   const fn = async (query: string): Promise<SearchResult[]> => {
     calls.push(query);
@@ -21,58 +23,69 @@ const RESULT = (title: string, url: string, snippet: string): SearchResult => ({
   url,
   snippet,
   score: 0.8,
-  provider: 'test',
+  provider: "test",
 });
 
-describe('ResearchEngine', () => {
+describe("ResearchEngine", () => {
   const extractContent = async (url: string) => ({
     title: `Content of ${url}`,
     content:
       `Detailed explanation about quantum computing and qubits for ${url}. ` +
-      'Quantum computers use superposition and entanglement to perform certain computations faster than classical machines. ' +
-      'Error correction remains the primary engineering challenge for scaling quantum systems to practical utility.',
-    publishedAt: '2025-06-01T00:00:00Z',
+      "Quantum computers use superposition and entanglement to perform certain computations faster than classical machines. " +
+      "Error correction remains the primary engineering challenge for scaling quantum systems to practical utility.",
+    publishedAt: "2025-06-01T00:00:00Z",
   });
 
-  it('runs a bounded research loop and returns an evidence-backed report', async () => {
+  it("runs a bounded research loop and returns an evidence-backed report", async () => {
     const search = makeSearch({
       quantum: [
-        RESULT('Quantum Computing Intro', 'https://quantum.example/intro', 'Intro to quantum'),
-        RESULT('Qubits Explained', 'https://quantum.example/qubits', 'What are qubits'),
+        RESULT(
+          "Quantum Computing Intro",
+          "https://quantum.example/intro",
+          "Intro to quantum",
+        ),
+        RESULT(
+          "Qubits Explained",
+          "https://quantum.example/qubits",
+          "What are qubits",
+        ),
       ],
     });
     const events: ResearchEvent[] = [];
     const engine = new ResearchEngine();
-    const report = await engine.research('quantum computing overview', {
-      mode: 'fast',
+    const report = await engine.research("quantum computing overview", {
+      mode: "fast",
       search,
       extractContent,
       onEvent: (e) => events.push(e),
     });
 
-    expect(report.objective).toBe('quantum computing overview');
+    expect(report.objective).toBe("quantum computing overview");
     expect(report.evidence.length).toBeGreaterThan(0);
-    expect(report.evidence[0]!.url).toContain('quantum.example');
-    expect(report.evidence[0]!.passage).toContain('quantum');
+    expect(report.evidence[0]!.url).toContain("quantum.example");
+    expect(report.evidence[0]!.passage).toContain("quantum");
     expect(report.usage.queries).toBeLessThanOrEqual(2);
-    expect(report.termination).toBeOneOf(['coverage-reached', 'budget-exhausted']);
-    expect(report.findings).toContain('quantum.example');
+    expect(report.termination).toBeOneOf([
+      "coverage-reached",
+      "budget-exhausted",
+    ]);
+    expect(report.findings).toContain("quantum.example");
 
     // Event stream must include query lifecycle events.
     const types = events.map((e) => e.type);
-    expect(types).toContain('query-started');
-    expect(types).toContain('query-completed');
+    expect(types).toContain("query-started");
+    expect(types).toContain("query-completed");
   });
 
-  it('respects the query budget', async () => {
+  it("respects the query budget", async () => {
     let searchCalls = 0;
     const search: SearchFn = async () => {
       searchCalls++;
-      return [RESULT('r', 'https://x.example/a', 's')];
+      return [RESULT("r", "https://x.example/a", "s")];
     };
     const engine = new ResearchEngine();
-    const report = await engine.research('objective', {
-      mode: 'fast',
+    const report = await engine.research("objective", {
+      mode: "fast",
       budgetOverrides: { maxQueries: 1, maxPages: 1 },
       search,
       extractContent,
@@ -81,146 +94,168 @@ describe('ResearchEngine', () => {
     expect(report.usage.queries).toBeLessThanOrEqual(2);
   });
 
-  it('deduplicates identical content across sources', async () => {
+  it("deduplicates identical content across sources", async () => {
     const search = makeSearch({
       dup: [
-        RESULT('Copy A', 'https://a.example/x', 'same'),
-        RESULT('Copy B', 'https://b.example/x', 'same'),
+        RESULT("Copy A", "https://a.example/x", "same"),
+        RESULT("Copy B", "https://b.example/x", "same"),
       ],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research('dup test', {
-      mode: 'fast',
+    const report = await engine.research("dup test", {
+      mode: "fast",
       search,
       extractContent: async () => ({
-        title: 'Identical content',
-        content: 'Exactly the same article text published on two different sites verbatim without any changes.',
+        title: "Identical content",
+        content:
+          "Exactly the same article text published on two different sites verbatim without any changes.",
       }),
     });
     // Both URLs searched, but near-identical content only counted once.
     expect(report.evidence.length).toBe(1);
   });
 
-  it('handles total search failure gracefully', async () => {
+  it("handles total search failure gracefully", async () => {
     const search: SearchFn = async () => {
-      throw new Error('search unavailable');
+      throw new Error("search unavailable");
     };
     const engine = new ResearchEngine();
-    const report = await engine.research('anything', {
-      mode: 'fast',
+    const report = await engine.research("anything", {
+      mode: "fast",
       search,
       extractContent,
     });
-    expect(report.termination).toBe('no-results');
+    expect(report.termination).toBe("no-results");
     expect(report.evidence).toEqual([]);
-    expect(report.findings).toContain('No evidence');
+    expect(report.findings).toContain("No evidence");
   });
 
-  it('supports cancellation mid-run', async () => {
+  it("supports cancellation mid-run", async () => {
     const controller = new AbortController();
     const search: SearchFn = async () => {
       controller.abort();
-      return [RESULT('r', 'https://x.example/a', 's')];
+      return [RESULT("r", "https://x.example/a", "s")];
     };
     const engine = new ResearchEngine();
-    const report = await engine.research('cancel me', {
-      mode: 'deep',
+    const report = await engine.research("cancel me", {
+      mode: "deep",
       search,
       extractContent,
       signal: controller.signal,
     });
-    expect(report.termination).toBe('cancelled');
+    expect(report.termination).toBe("cancelled");
   });
 
-  it('uses the model synthesis hook when provided', async () => {
+  it("uses the model synthesis hook when provided", async () => {
     const search = makeSearch({
-      topic: [RESULT('Source', 'https://s.example/1', 'about the topic')],
+      topic: [RESULT("Source", "https://s.example/1", "about the topic")],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research('topic research', {
-      mode: 'fast',
+    const report = await engine.research("topic research", {
+      mode: "fast",
       search,
       extractContent,
       synthesis: async (objective, evidence) =>
         `Model summary of "${objective}" using ${evidence.length} sources.`,
     });
-    expect(report.findings).toBe('Model summary of "topic research" using 1 sources.');
+    expect(report.findings).toBe(
+      'Model summary of "topic research" using 1 sources.',
+    );
   });
 
-  it('falls back to deterministic summary when synthesis throws', async () => {
+  it("falls back to deterministic summary when synthesis throws", async () => {
     const search = makeSearch({
-      topic: [RESULT('Source', 'https://s.example/1', 'about the topic')],
+      topic: [RESULT("Source", "https://s.example/1", "about the topic")],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research('topic research', {
-      mode: 'fast',
+    const report = await engine.research("topic research", {
+      mode: "fast",
       search,
       extractContent,
       synthesis: async () => {
-        throw new Error('model down');
+        throw new Error("model down");
       },
     });
-    expect(report.findings).toContain('s.example');
+    expect(report.findings).toContain("s.example");
   });
 
-  it('keeps evidence snippets when extraction fails', async () => {
+  it("keeps evidence snippets when extraction fails", async () => {
     const search = makeSearch({
-      fail: [RESULT('Unreachable', 'https://dead.example/x', 'The snippet describes the finding.')],
+      fail: [
+        RESULT(
+          "Unreachable",
+          "https://dead.example/x",
+          "The snippet describes the finding.",
+        ),
+      ],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research('fail test', {
-      mode: 'fast',
+    const report = await engine.research("fail test", {
+      mode: "fast",
       search,
       extractContent: async () => {
-        throw new Error('connection refused');
+        throw new Error("connection refused");
       },
     });
     expect(report.evidence.length).toBe(1);
-    expect(report.evidence[0]!.passage).toContain('snippet describes');
+    expect(report.evidence[0]!.passage).toContain("snippet describes");
   });
 
-  it('records gap-driven follow-up queries', async () => {
+  it("records gap-driven follow-up queries", async () => {
     const search = makeSearch({
       // Only returns results for one sub-topic, leaving a gap.
-      postgres: [RESULT('Postgres Guide', 'https://db.example/pg', 'postgres content')],
+      postgres: [
+        RESULT("Postgres Guide", "https://db.example/pg", "postgres content"),
+      ],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research('postgres and redis comparison', {
-      mode: 'standard',
+    const report = await engine.research("postgres and redis comparison", {
+      mode: "standard",
       search,
       extractContent,
       budgetOverrides: { maxPages: 3 },
     });
     // The objective mentions redis; nothing covers it; a gap is recorded.
-    expect(report.gaps.length + report.steps.filter((s) => s.reason === 'gap-followup').length).toBeGreaterThan(0);
+    expect(
+      report.gaps.length +
+        report.steps.filter((s) => s.reason === "gap-followup").length,
+    ).toBeGreaterThan(0);
   });
 });
 
-describe('planner', () => {
-  it('decomposes multi-clause objectives', async () => {
-    const { planInitialQueries } = await import('../src/planner.js');
-    const queries = planInitialQueries('postgres performance and redis caching', 'standard');
+describe("planner", () => {
+  it("decomposes multi-clause objectives", async () => {
+    const { planInitialQueries } = await import("../src/planner.js");
+    const queries = planInitialQueries(
+      "postgres performance and redis caching",
+      "standard",
+    );
     expect(queries.length).toBeGreaterThan(1);
-    expect(queries.some((q) => q.includes('redis'))).toBe(true);
+    expect(queries.some((q) => q.includes("redis"))).toBe(true);
   });
 
-  it('detects gaps for uncovered objective terms', async () => {
-    const { detectGaps } = await import('../src/planner.js');
+  it("detects gaps for uncovered objective terms", async () => {
+    const { detectGaps } = await import("../src/planner.js");
     const gaps = detectGaps(
-      'vector databases and postgres extensions',
-      [{ title: 'Vector databases', passage: 'Vector databases store embeddings.' }],
-      3
+      "vector databases and postgres extensions",
+      [
+        {
+          title: "Vector databases",
+          passage: "Vector databases store embeddings.",
+        },
+      ],
+      3,
     );
     expect(gaps.length).toBeGreaterThan(0);
-    expect(gaps[0]).toContain('postgres');
+    expect(gaps[0]).toContain("postgres");
   });
 
-  it('reports no gaps when everything is covered', async () => {
-    const { detectGaps } = await import('../src/planner.js');
+  it("reports no gaps when everything is covered", async () => {
+    const { detectGaps } = await import("../src/planner.js");
     const gaps = detectGaps(
-      'quantum computing',
-      [{ title: 'Quantum', passage: 'Quantum computing explained fully.' }],
-      3
+      "quantum computing",
+      [{ title: "Quantum", passage: "Quantum computing explained fully." }],
+      3,
     );
     expect(gaps).toEqual([]);
   });

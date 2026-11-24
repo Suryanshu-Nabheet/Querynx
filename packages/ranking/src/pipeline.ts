@@ -8,8 +8,8 @@
  * optional layer.
  */
 
-import type { SearchResult } from '@querynx/types';
-import { extractDomain } from '@querynx/shared';
+import type { SearchResult } from "@querynx/types";
+import { extractDomain } from "@querynx/shared";
 
 export interface RankingContext {
   /** The user query text. */
@@ -33,10 +33,13 @@ export interface RankingSignal {
 
 /** Text overlap between query terms and title+snippet (normalized). */
 export const textRelevance: RankingSignal = {
-  name: 'text-relevance',
+  name: "text-relevance",
   weight: 1.0,
   score: (result, context) => {
-    const queryTerms = context.query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
+    const queryTerms = context.query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 1);
     if (queryTerms.length === 0) return 0;
     const haystack = `${result.title} ${result.snippet}`.toLowerCase();
     let hits = 0;
@@ -49,7 +52,7 @@ export const textRelevance: RankingSignal = {
 
 /** Recency: newer content scores higher, decaying over ~1 year. */
 export const freshness: RankingSignal = {
-  name: 'freshness',
+  name: "freshness",
   weight: 0.5,
   score: (result, context) => {
     if (!result.publishedAt) return 0.5; // unknown age: neutral
@@ -65,7 +68,7 @@ export const freshness: RankingSignal = {
 
 /** Source diversity: penalize repeated domains deeper in the list. */
 export const sourceDiversity: RankingSignal = {
-  name: 'source-diversity',
+  name: "source-diversity",
   weight: 0.3,
   score: (result) => {
     // Diversity is positional and applied at pipeline level; per-result
@@ -77,7 +80,7 @@ export const sourceDiversity: RankingSignal = {
 
 /** Operator domain preferences, clamped to [-1, 1]. */
 export const domainBoost: RankingSignal = {
-  name: 'domain-boost',
+  name: "domain-boost",
   weight: 0.8,
   score: (result, context) => {
     const prefs = context.domainPreferences;
@@ -88,7 +91,8 @@ export const domainBoost: RankingSignal = {
     for (const [pref, boost] of Object.entries(prefs)) {
       if (domain === pref || domain.endsWith(`.${pref}`)) {
         const clamped = Math.max(-1, Math.min(1, boost));
-        if (best === undefined || Math.abs(clamped) > Math.abs(best)) best = clamped;
+        if (best === undefined || Math.abs(clamped) > Math.abs(best))
+          best = clamped;
       }
     }
     if (best === undefined) return 0.5;
@@ -98,12 +102,13 @@ export const domainBoost: RankingSignal = {
 
 /** Multi-provider corroboration. */
 export const corroboration: RankingSignal = {
-  name: 'corroboration',
+  name: "corroboration",
   weight: 0.6,
   score: (result, context) => {
     const counts = context.providerCounts;
     if (!counts) return 0.5;
-    const providers = (result.metadata?.providers as string[] | undefined) ?? [];
+    const providers =
+      (result.metadata?.providers as string[] | undefined) ?? [];
     let distinct = 0;
     for (const p of providers) {
       if (counts.has(p)) distinct++;
@@ -134,7 +139,7 @@ export interface RankedResult extends SearchResult {
 export function rankResults(
   candidates: readonly SearchResult[],
   context: RankingContext,
-  signals: readonly RankingSignal[] = DEFAULT_SIGNALS
+  signals: readonly RankingSignal[] = DEFAULT_SIGNALS,
 ): RankedResult[] {
   const scored = candidates.map((result) => {
     const signalScores: Record<string, number> = {};

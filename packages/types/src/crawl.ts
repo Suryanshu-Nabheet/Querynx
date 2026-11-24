@@ -2,10 +2,10 @@
  * Web crawling domain types.
  */
 
-import type { ExtractedDocument } from './extract.js';
+import type { ExtractedDocument } from "./extract.js";
 
 /** Strategies for frontier ordering. */
-export type CrawlStrategy = 'breadth-first' | 'depth-first' | 'priority';
+export type CrawlStrategy = "breadth-first" | "depth-first" | "priority";
 
 /** A crawl request. */
 export interface CrawlRequest {
@@ -33,12 +33,7 @@ export interface CrawlRequest {
 
 /** Lifecycle states of a crawl job. */
 export type CrawlStatus =
-  | 'pending'
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+  "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
 /** One discovered page inside a crawl. */
 export interface CrawledPage {

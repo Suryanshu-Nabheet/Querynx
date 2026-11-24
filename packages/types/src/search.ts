@@ -8,10 +8,10 @@
  */
 
 /** Categories of search intent, used for provider routing and ranking. */
-export type SearchCategory = 'web' | 'news' | 'academic' | 'code' | 'docs';
+export type SearchCategory = "web" | "news" | "academic" | "code" | "docs";
 
 /** Freshness windows supported by providers and freshness ranking. */
-export type Freshness = 'any' | 'day' | 'week' | 'month' | 'year';
+export type Freshness = "any" | "day" | "week" | "month" | "year";
 
 /** A normalized, provider-agnostic search request. */
 export interface SearchQuery {
@@ -73,7 +73,7 @@ export interface SearchResult {
 /** A single provider search attempt within a federated search. */
 export interface ProviderSearchAttempt {
   provider: string;
-  status: 'ok' | 'error' | 'skipped' | 'degraded';
+  status: "ok" | "error" | "skipped" | "degraded";
   /** Results contributed by this provider. */
   resultCount: number;
   /** Wall-clock duration of the attempt in milliseconds. */
@@ -117,7 +117,7 @@ export interface ProviderHealth {
   /** Provider identifier. */
   name: string;
   /** Circuit state: closed (healthy), open (failing), half-open (probing). */
-  state: 'closed' | 'open' | 'half-open';
+  state: "closed" | "open" | "half-open";
   /** Consecutive failure count feeding the circuit breaker. */
   consecutiveFailures: number;
   /** Rolling success rate over the recent window, in [0, 1]. */

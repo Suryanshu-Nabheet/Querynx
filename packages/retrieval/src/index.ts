@@ -15,16 +15,16 @@ import {
   fuseHybrid,
   type IndexedDocument,
   type RetrievalHit,
-} from '@querynx/indexer';
-import type { Embedder } from '@querynx/embeddings';
-import { mapWithConcurrency } from '@querynx/shared';
+} from "@querynx/indexer";
+import type { Embedder } from "@querynx/embeddings";
+import { mapWithConcurrency } from "@querynx/shared";
 
 export interface HybridSearchResult {
   document: IndexedDocument;
   /** Fused RRF score (unnormalized; use for ordering). */
   score: number;
   /** Which systems retrieved the document. */
-  sources: Array<'bm25' | 'vector'>;
+  sources: Array<"bm25" | "vector">;
   /** BM25 matched terms when keyword retrieval contributed. */
   matchedTerms: string[];
   bm25Score: number;
@@ -45,18 +45,28 @@ export class HybridRetrievalEngine {
   private readonly embedder: Embedder;
   private readonly rrfK: number;
 
-  constructor(options: { bm25?: MemorySearchEngine; embedder: Embedder; rrfK?: number } ) {
+  constructor(options: {
+    bm25?: MemorySearchEngine;
+    embedder: Embedder;
+    rrfK?: number;
+  }) {
     this.bm25 = options.bm25 ?? new MemorySearchEngine();
     this.embedder = options.embedder;
     this.rrfK = options.rrfK ?? 60;
   }
 
   /** Index a document: BM25 + embedding + vector upsert in one call. */
-  async ingest(document: Omit<IndexedDocument, 'id' | 'indexedAt'>): Promise<IndexedDocument> {
+  async ingest(
+    document: Omit<IndexedDocument, "id" | "indexedAt">,
+  ): Promise<IndexedDocument> {
     const existing = this.bm25.findByUrl(document.url);
-    const stored = this.bm25.index(existing ? { ...document, id: existing.id } : document);
+    const stored = this.bm25.index(
+      existing ? { ...document, id: existing.id } : document,
+    );
 
-    const embedding = await this.embedder.embed(`${stored.title}\n${stored.content}`);
+    const embedding = await this.embedder.embed(
+      `${stored.title}\n${stored.content}`,
+    );
     this.vectors.upsert(stored.id, embedding);
     this.embeddingByDoc.set(stored.id, embedding);
     return stored;
@@ -64,8 +74,8 @@ export class HybridRetrievalEngine {
 
   /** Ingest many documents under bounded concurrency. */
   async ingestBatch(
-    documents: ReadonlyArray<Omit<IndexedDocument, 'id' | 'indexedAt'>>,
-    concurrency = 4
+    documents: ReadonlyArray<Omit<IndexedDocument, "id" | "indexedAt">>,
+    concurrency = 4,
   ): Promise<IndexedDocument[]> {
     return mapWithConcurrency(documents, concurrency, (d) => this.ingest(d));
   }
@@ -100,8 +110,12 @@ export class HybridRetrievalEngine {
     const queryEmbedding = await this.embedder.embed(options.query);
     const vectorHits = this.vectors.search(queryEmbedding, depth);
 
-    const docsById = new Map(this.bm25.documents().map((d) => [d.id, d] as const));
-    const fused = fuseHybrid(bm25Hits, vectorHits, docsById, { rrfK: this.rrfK });
+    const docsById = new Map(
+      this.bm25.documents().map((d) => [d.id, d] as const),
+    );
+    const fused = fuseHybrid(bm25Hits, vectorHits, docsById, {
+      rrfK: this.rrfK,
+    });
 
     // Collection filter for vector-only hits (vector store is dumb).
     const filtered = options.collection
@@ -120,17 +134,22 @@ export class HybridRetrievalEngine {
   /** Vector-only semantic search (no keywords required). */
   async semanticSearch(
     text: string,
-    limit = 10
+    limit = 10,
   ): Promise<Array<{ document: IndexedDocument; similarity: number }>> {
     const embedding = await this.embedder.embed(text);
     const hits = this.vectors.search(embedding, limit);
-    const docsById = new Map(this.bm25.documents().map((d) => [d.id, d] as const));
+    const docsById = new Map(
+      this.bm25.documents().map((d) => [d.id, d] as const),
+    );
     return hits
       .map((h) => {
         const doc = docsById.get(h.docId);
         return doc ? { document: doc, similarity: h.similarity } : null;
       })
-      .filter((x): x is { document: IndexedDocument; similarity: number } => x !== null);
+      .filter(
+        (x): x is { document: IndexedDocument; similarity: number } =>
+          x !== null,
+      );
   }
 
   /** Corpus statistics. */

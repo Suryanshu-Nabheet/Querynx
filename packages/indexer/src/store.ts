@@ -2,7 +2,7 @@
  * Document model and storage contract for the indexer.
  */
 
-import type { ExtractedDocument } from '@querynx/types';
+import type { ExtractedDocument } from "@querynx/types";
 
 /** A document indexed into a collection. */
 export interface IndexedDocument {
@@ -29,8 +29,8 @@ export interface IndexedDocument {
 /** Convert an extracted web document into an indexable one. */
 export function fromExtractedDocument(
   doc: ExtractedDocument,
-  collection: string
-): Omit<IndexedDocument, 'id' | 'indexedAt'> {
+  collection: string,
+): Omit<IndexedDocument, "id" | "indexedAt"> {
   return {
     url: doc.url,
     title: doc.title ?? doc.url,

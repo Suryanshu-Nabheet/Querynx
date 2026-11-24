@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { getStoredConnection, storeConnection } from '../lib/api';
+import { useEffect, useState } from "react";
+import { getStoredConnection, storeConnection } from "../lib/api";
 
 /** URL/key connection bar shown on every page. */
 export default function ConnectionBar() {
-  const [url, setUrl] = useState('');
-  const [key, setKey] = useState('');
+  const [url, setUrl] = useState("");
+  const [key, setKey] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const conn = getStoredConnection();
     setUrl(conn.url);
-    setKey(conn.apiKey ?? '');
+    setKey(conn.apiKey ?? "");
   }, []);
 
   const save = () => {
@@ -23,7 +23,10 @@ export default function ConnectionBar() {
   };
 
   return (
-    <div className="panel" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+    <div
+      className="panel"
+      style={{ display: "flex", gap: 10, alignItems: "center" }}
+    >
       <input
         style={{ flex: 2 }}
         value={url}
@@ -39,7 +42,7 @@ export default function ConnectionBar() {
         aria-label="API key"
         type="password"
       />
-      <button onClick={save}>{saved ? 'Saved ✓' : 'Connect'}</button>
+      <button onClick={save}>{saved ? "Saved ✓" : "Connect"}</button>
     </div>
   );
 }

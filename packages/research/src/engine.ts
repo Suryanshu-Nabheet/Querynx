@@ -16,15 +16,19 @@ import type {
   ResearchStep,
   SearchFn,
   SynthesisFn,
-} from './types.js';
-import { MODE_BUDGETS } from './types.js';
-import { detectGaps, planFollowUpQuery, planInitialQueries } from './planner.js';
+} from "./types.js";
+import { MODE_BUDGETS } from "./types.js";
+import {
+  detectGaps,
+  planFollowUpQuery,
+  planInitialQueries,
+} from "./planner.js";
 import {
   fingerprintSimilarity,
   fingerprintText,
   extractDomain,
   mapWithConcurrency,
-} from '@querynx/shared';
+} from "@querynx/shared";
 
 export interface ResearchEngineOptions {
   mode?: ResearchMode;
@@ -35,7 +39,10 @@ export interface ResearchEngineOptions {
   /** Deterministic extractive summary when no model is configured. */
   synthesis?: SynthesisFn;
   /** Page-content extraction hook (fetcher-based in production). */
-  extractContent: (url: string, signal?: AbortSignal) => Promise<{ title: string; content: string; publishedAt?: string } | null>;
+  extractContent: (
+    url: string,
+    signal?: AbortSignal,
+  ) => Promise<{ title: string; content: string; publishedAt?: string } | null>;
   /** Progress streaming. */
   onEvent?: (event: ResearchEvent) => void;
   /** Cooperative cancellation. */
@@ -48,8 +55,11 @@ export class ResearchEngine {
   /**
    * Execute a bounded research run over an objective.
    */
-  async research(objective: string, options: ResearchEngineOptions): Promise<ResearchReport> {
-    const mode: ResearchMode = options.mode ?? 'standard';
+  async research(
+    objective: string,
+    options: ResearchEngineOptions,
+  ): Promise<ResearchReport> {
+    const mode: ResearchMode = options.mode ?? "standard";
     const budgets: ResearchBudget = {
       ...MODE_BUDGETS[mode],
       ...options.budgetOverrides,
@@ -79,11 +89,11 @@ export class ResearchEngine {
     const plannedQueries = planInitialQueries(objective, mode);
     const searchRound = async (
       query: string,
-      reason: ResearchStep['reason']
+      reason: ResearchStep["reason"],
     ): Promise<void> => {
       if (outOfBudget()) return;
       queriesIssued++;
-      emit({ type: 'query-started', query, reason });
+      emit({ type: "query-started", query, reason });
       const t0 = Date.now();
       let results = [] as Awaited<ReturnType<SearchFn>>;
       try {
@@ -99,7 +109,12 @@ export class ResearchEngine {
         resultCount: results.length,
         durationMs,
       });
-      emit({ type: 'query-completed', query, resultCount: results.length, durationMs });
+      emit({
+        type: "query-completed",
+        query,
+        resultCount: results.length,
+        durationMs,
+      });
 
       // Queue promising results for content extraction.
       for (const result of results) {
@@ -112,56 +127,76 @@ export class ResearchEngine {
     };
 
     // Indirection so tests can inject search; avoids importing types fn.
-    const pendingExtraction: Array<{ url: string; title: string; snippet: string; score: number; publishedAt?: string }> = [];
+    const pendingExtraction: Array<{
+      url: string;
+      title: string;
+      snippet: string;
+      score: number;
+      publishedAt?: string;
+    }> = [];
 
     const extractPending = async (): Promise<void> => {
-      const batch = pendingExtraction.splice(0, budgets.maxPages - pagesFetched);
-      await mapWithConcurrency(batch, fetchConcurrency, async (result) => {
-        if (outOfBudget()) return;
-        if (signal?.aborted) return;
-        try {
-          const extracted = await options.extractContent(result.url, signal);
-          if (!extracted) return;
-          pagesFetched++;
+      const batch = pendingExtraction.splice(
+        0,
+        budgets.maxPages - pagesFetched,
+      );
+      await mapWithConcurrency(
+        batch,
+        fetchConcurrency,
+        async (result) => {
+          if (outOfBudget()) return;
+          if (signal?.aborted) return;
+          try {
+            const extracted = await options.extractContent(result.url, signal);
+            if (!extracted) return;
+            pagesFetched++;
 
-          const fingerprint = fingerprintText(extracted.content);
-          // Content-level dedupe across sources.
-          if (seenFingerprints.some((f) => fingerprintSimilarity(f, fingerprint) > 0.9)) {
-            return;
+            const fingerprint = fingerprintText(extracted.content);
+            // Content-level dedupe across sources.
+            if (
+              seenFingerprints.some(
+                (f) => fingerprintSimilarity(f, fingerprint) > 0.9,
+              )
+            ) {
+              return;
+            }
+            seenFingerprints.push(fingerprint);
+            contentChars += extracted.content.length;
+            emit({
+              type: "page-extracted",
+              url: result.url,
+              title: extracted.title,
+              contentChars: extracted.content.length,
+            });
+
+            evidence.push({
+              url: result.url,
+              title: extracted.title || result.title,
+              passage: selectPassages(extracted.content, 3)
+                .join("\n\n")
+                .slice(0, 2_000),
+              stepQuery: steps.at(-1)?.query ?? "",
+              relevance: result.score,
+              publishedAt: extracted.publishedAt ?? result.publishedAt,
+            });
+          } catch {
+            // Extraction failure is tolerable; the snippet remains as evidence.
+            evidence.push({
+              url: result.url,
+              title: result.title,
+              passage: result.snippet,
+              stepQuery: steps.at(-1)?.query ?? "",
+              relevance: result.score * 0.5,
+              publishedAt: result.publishedAt,
+            });
           }
-          seenFingerprints.push(fingerprint);
-          contentChars += extracted.content.length;
-          emit({
-            type: 'page-extracted',
-            url: result.url,
-            title: extracted.title,
-            contentChars: extracted.content.length,
-          });
-
-          evidence.push({
-            url: result.url,
-            title: extracted.title || result.title,
-            passage: selectPassages(extracted.content, 3).join('\n\n').slice(0, 2_000),
-            stepQuery: steps.at(-1)?.query ?? '',
-            relevance: result.score,
-            publishedAt: extracted.publishedAt ?? result.publishedAt,
-          });
-        } catch {
-          // Extraction failure is tolerable; the snippet remains as evidence.
-          evidence.push({
-            url: result.url,
-            title: result.title,
-            passage: result.snippet,
-            stepQuery: steps.at(-1)?.query ?? '',
-            relevance: result.score * 0.5,
-            publishedAt: result.publishedAt,
-          });
-        }
-      }, signal).catch(() => {});
+        },
+        signal,
+      ).catch(() => {});
     };
 
     for (const query of plannedQueries) {
-      await searchRound(query, 'initial');
+      await searchRound(query, "initial");
     }
     await extractPending();
 
@@ -173,38 +208,43 @@ export class ResearchEngine {
       for (const gap of detected) {
         if (outOfBudget()) break;
         gaps.push({ question: gap, attemptedQueries: [gap] });
-        emit({ type: 'gap-detected', question: gap });
+        emit({ type: "gap-detected", question: gap });
         const followUp = planFollowUpQuery(
           gap,
-          steps.map((s) => s.query)
+          steps.map((s) => s.query),
         );
-        await searchRound(followUp, 'gap-followup');
+        await searchRound(followUp, "gap-followup");
       }
       await extractPending();
       followUpRound++;
     }
 
     if (signal?.aborted) {
-      return finalize('cancelled');
+      return finalize("cancelled");
     }
 
     // ---- Phase 3: synthesis ------------------------------------------
     const findings = options.synthesis
-      ? await options.synthesis(objective, evidence).catch(() =>
-          deterministicSummary(objective, evidence)
-        )
+      ? await options
+          .synthesis(objective, evidence)
+          .catch(() => deterministicSummary(objective, evidence))
       : deterministicSummary(objective, evidence);
 
-    const termination: ResearchReport['termination'] =
+    const termination: ResearchReport["termination"] =
       steps.length === 0 || evidence.length === 0
-        ? 'no-results'
-        : queriesIssued >= budgets.maxQueries || pagesFetched >= budgets.maxPages || Date.now() >= deadline
-          ? 'budget-exhausted'
-          : 'coverage-reached';
+        ? "no-results"
+        : queriesIssued >= budgets.maxQueries ||
+            pagesFetched >= budgets.maxPages ||
+            Date.now() >= deadline
+          ? "budget-exhausted"
+          : "coverage-reached";
 
     return finalize(termination, findings);
 
-    function finalize(termination: ResearchReport['termination'], findings?: string): ResearchReport {
+    function finalize(
+      termination: ResearchReport["termination"],
+      findings?: string,
+    ): ResearchReport {
       return {
         objective,
         mode,
@@ -228,7 +268,7 @@ export class ResearchEngine {
 /** Select the most central sentences as passages (extractive). */
 function selectPassages(content: string, count: number): string[] {
   const sentences = content
-    .replace(/\s+/g, ' ')
+    .replace(/\s+/g, " ")
     .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
     .filter((s) => s.length > 40);
   if (sentences.length === 0) return [content.slice(0, 500)];
@@ -248,20 +288,25 @@ function selectPassages(content: string, count: number): string[] {
 }
 
 /** Deterministic extractive summary: best passages joined by provenance. */
-function deterministicSummary(objective: string, evidence: readonly Evidence[]): string {
+function deterministicSummary(
+  objective: string,
+  evidence: readonly Evidence[],
+): string {
   if (evidence.length === 0) {
     return `No evidence was retrieved for the objective "${objective}".`;
   }
   const sections: string[] = [];
   const byDomain = new Map<string, Evidence[]>();
   for (const item of evidence) {
-    const domain = extractDomain(item.url) || 'unknown';
+    const domain = extractDomain(item.url) || "unknown";
     const list = byDomain.get(domain) ?? [];
     list.push(item);
     byDomain.set(domain, list);
   }
 
-  sections.push(`Findings for "${objective}" are supported by ${evidence.length} source(s) across ${byDomain.size} domain(s).`);
+  sections.push(
+    `Findings for "${objective}" are supported by ${evidence.length} source(s) across ${byDomain.size} domain(s).`,
+  );
   for (const item of evidence.slice(0, 8)) {
     const passage = item.passage.slice(0, 400);
     sections.push(`According to "${item.title}" (${item.url}): ${passage}`);
@@ -269,6 +314,6 @@ function deterministicSummary(objective: string, evidence: readonly Evidence[]):
   const distinct = [...byDomain.entries()]
     .filter(([, items]) => items.length > 0)
     .map(([domain]) => domain);
-  sections.push(`Sources: ${distinct.join(', ')}.`);
-  return sections.join('\n\n');
+  sections.push(`Sources: ${distinct.join(", ")}.`);
+  return sections.join("\n\n");
 }

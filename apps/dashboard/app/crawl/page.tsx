@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import ConnectionBar from '../../components/ConnectionBar';
-import { apiGet, apiPost, apiDelete, DashboardApiError } from '../../lib/api';
+import { useEffect, useRef, useState } from "react";
+import ConnectionBar from "../../components/ConnectionBar";
+import { apiGet, apiPost, apiDelete, DashboardApiError } from "../../lib/api";
 
 interface JobView {
   id: string;
@@ -23,21 +23,23 @@ interface QueueStats {
 }
 
 export default function CrawlPage() {
-  const [seeds, setSeeds] = useState('');
-  const [collection, setCollection] = useState('crawled');
+  const [seeds, setSeeds] = useState("");
+  const [collection, setCollection] = useState("crawled");
   const [maxPages, setMaxPages] = useState(10);
   const [maxDepth, setMaxDepth] = useState(1);
   const [jobs, setJobs] = useState<JobView[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadQueue = async () => {
     try {
-      const body = await apiGet<{ stats: QueueStats }>('/v1/jobs');
+      const body = await apiGet<{ stats: QueueStats }>("/v1/jobs");
       setStats(body.stats);
-    } catch { /* optional */ }
+    } catch {
+      /* optional */
+    }
   };
 
   useEffect(() => {
@@ -48,21 +50,29 @@ export default function CrawlPage() {
     };
   }, []);
 
-  const submit = async (type: 'crawl' | 'index') => {
+  const submit = async (type: "crawl" | "index") => {
     setSubmitting(true);
-    setError('');
+    setError("");
     try {
-      const seedList = seeds.split(/\s+/).map((s) => s.trim()).filter(Boolean);
-      if (seedList.length === 0) throw new Error('provide at least one URL');
+      const seedList = seeds
+        .split(/\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (seedList.length === 0) throw new Error("provide at least one URL");
       const payload =
-        type === 'crawl'
+        type === "crawl"
           ? { seeds: seedList, collection, maxPages, maxDepth }
           : { url: seedList[0]!, collection };
-      const body = await apiPost<{ job: JobView }>('/v1/jobs', { type, payload });
-      setJobs((prev) => [{ ...body.job, result: undefined }, ...prev].slice(0, 20));
+      const body = await apiPost<{ job: JobView }>("/v1/jobs", {
+        type,
+        payload,
+      });
+      setJobs((prev) =>
+        [{ ...body.job, result: undefined }, ...prev].slice(0, 20),
+      );
       void loadQueue();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'submission failed');
+      setError(err instanceof Error ? err.message : "submission failed");
     }
     setSubmitting(false);
   };
@@ -74,7 +84,7 @@ export default function CrawlPage() {
       if (err instanceof DashboardApiError && err.status === 404) {
         // Already terminal — refresh to reflect it.
       } else {
-        setError(err instanceof Error ? err.message : 'cancel failed');
+        setError(err instanceof Error ? err.message : "cancel failed");
       }
     }
     void loadQueue();
@@ -97,7 +107,14 @@ export default function CrawlPage() {
           placeholder="https://example.com  (one or more seed URLs)"
           aria-label="Seed URLs"
         />
-        <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            marginTop: 10,
+            alignItems: "center",
+          }}
+        >
           <input
             style={{ width: 140 }}
             value={collection}
@@ -105,7 +122,9 @@ export default function CrawlPage() {
             placeholder="collection"
             aria-label="Collection"
           />
-          <label htmlFor="maxPages" className="sub" style={{ margin: 0 }}>max pages</label>
+          <label htmlFor="maxPages" className="sub" style={{ margin: 0 }}>
+            max pages
+          </label>
           <input
             id="maxPages"
             type="number"
@@ -115,7 +134,9 @@ export default function CrawlPage() {
             value={maxPages}
             onChange={(e) => setMaxPages(Number(e.target.value) || 10)}
           />
-          <label htmlFor="maxDepth" className="sub" style={{ margin: 0 }}>depth</label>
+          <label htmlFor="maxDepth" className="sub" style={{ margin: 0 }}>
+            depth
+          </label>
           <input
             id="maxDepth"
             type="number"
@@ -125,13 +146,18 @@ export default function CrawlPage() {
             value={maxDepth}
             onChange={(e) => setMaxDepth(Number(e.target.value) || 1)}
           />
-          <button onClick={() => void submit('crawl')} disabled={submitting || !seeds.trim()}>
-            {submitting ? 'Submitting…' : 'Crawl'}
+          <button
+            onClick={() => void submit("crawl")}
+            disabled={submitting || !seeds.trim()}
+          >
+            {submitting ? "Submitting…" : "Crawl"}
           </button>
           <button
             className="secondary"
-            onClick={() => void submit('index')}
-            disabled={submitting || !seeds.trim() || seeds.split(/\s+/).length !== 1}
+            onClick={() => void submit("index")}
+            disabled={
+              submitting || !seeds.trim() || seeds.split(/\s+/).length !== 1
+            }
             title="Single-URL extraction and ingest"
           >
             Index URL
@@ -143,10 +169,22 @@ export default function CrawlPage() {
 
       {stats && (
         <div className="grid">
-          <div className="panel stat"><div className="label">PENDING</div><div className="value">{stats.pending}</div></div>
-          <div className="panel stat"><div className="label">RUNNING</div><div className="value">{stats.running}</div></div>
-          <div className="panel stat"><div className="label">DEAD-LETTERED</div><div className="value">{stats.dead}</div></div>
-          <div className="panel stat"><div className="label">TOTAL</div><div className="value">{stats.total}</div></div>
+          <div className="panel stat">
+            <div className="label">PENDING</div>
+            <div className="value">{stats.pending}</div>
+          </div>
+          <div className="panel stat">
+            <div className="label">RUNNING</div>
+            <div className="value">{stats.running}</div>
+          </div>
+          <div className="panel stat">
+            <div className="label">DEAD-LETTERED</div>
+            <div className="value">{stats.dead}</div>
+          </div>
+          <div className="panel stat">
+            <div className="label">TOTAL</div>
+            <div className="value">{stats.total}</div>
+          </div>
         </div>
       )}
 
@@ -157,12 +195,24 @@ export default function CrawlPage() {
             {jobs.map((j) => (
               <div className="result" key={j.id}>
                 <div className="title">
-                  {j.type} · <span className={`badge ${j.status === 'completed' ? 'ok' : j.status === 'dead' ? 'bad' : 'warn'}`}>{j.status}</span>
+                  {j.type} ·{" "}
+                  <span
+                    className={`badge ${j.status === "completed" ? "ok" : j.status === "dead" ? "bad" : "warn"}`}
+                  >
+                    {j.status}
+                  </span>
                 </div>
                 <div className="snippet">{j.id}</div>
                 {j.error && <div className="error">{j.error}</div>}
-                {j.status !== 'completed' && j.status !== 'dead' && (
-                  <p><button className="secondary" onClick={() => void cancel(j.id)}>Cancel</button></p>
+                {j.status !== "completed" && j.status !== "dead" && (
+                  <p>
+                    <button
+                      className="secondary"
+                      onClick={() => void cancel(j.id)}
+                    >
+                      Cancel
+                    </button>
+                  </p>
                 )}
               </div>
             ))}
