@@ -128,7 +128,12 @@ export class SearchOrchestrator {
    */
   async search(
     query: SearchQuery,
-    options: { signal?: AbortSignal; providers?: readonly string[] } = {}
+    options: {
+      signal?: AbortSignal;
+      providers?: readonly string[];
+      /** Streamed per-provider partial results as they complete. */
+      onProviderResult?: (provider: string, results: SearchResult[]) => void;
+    } = {}
   ): Promise<SearchResponse> {
     const started = Date.now();
     const { signal } = options;
@@ -194,6 +199,7 @@ export class SearchOrchestrator {
             this.healthTracker.recordLatency(provider.name, duration);
             this.healthTracker.recordOutcome(provider.name, true);
             breaker.success();
+            options.onProviderResult?.(provider.name, results);
             return {
               provider: provider.name,
               results,

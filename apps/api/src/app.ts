@@ -345,6 +345,166 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     providers: orchestrator.getProviderHealth(),
   }));
 
+  // --- v1/search/stream (SSE) ---------------------------------------------------
+  app.post(
+    '/v1/search/stream',
+    { schema: searchSchema },
+    async (request, reply) => {
+      const body = request.body as {
+        query: string;
+        maxResults?: number;
+        includeDomains?: string[];
+        excludeDomains?: string[];
+        language?: string;
+        region?: string;
+        freshness?: SearchQuery['freshness'];
+        category?: SearchQuery['category'];
+        providers?: string[];
+      };
+
+      const query: SearchQuery = {
+        query: body.query.trim(),
+        maxResults: body.maxResults ?? 10,
+        includeDomains: body.includeDomains,
+        excludeDomains: body.excludeDomains,
+        language: body.language,
+        region: body.region,
+        freshness: body.freshness ?? 'any',
+        category: body.category ?? 'web',
+      };
+
+      // SSE setup: no compression, no buffering, explicit event framing.
+      reply.raw.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      });
+
+      const send = (event: string, data: unknown) => {
+        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // Client disconnect cancels the in-flight provider work.
+      const disconnect = new AbortController();
+      request.raw.on('close', () => disconnect.abort());
+
+      send('start', { requestId: request.id, query: query.query });
+
+      try {
+        const response = await orchestrator.search(query, {
+          providers: body.providers,
+          signal: disconnect.signal,
+          onProviderResult: (provider, results) => {
+            send('partial', { provider, count: results.length });
+          },
+        });
+        send('results', { results: response.results, diagnostics: response.diagnostics });
+        send('done', { requestId: request.id });
+      } catch (err) {
+        send('error', {
+          message: err instanceof Error ? err.message : 'search failed',
+        });
+      }
+      reply.raw.end();
+      return reply;
+    }
+  );
+
+  // --- v1/research/stream (SSE) ----------------------------------------------------
+  app.post(
+    '/v1/research/stream',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['objective'],
+          properties: {
+            objective: { type: 'string', minLength: 3, maxLength: 1000 },
+            mode: {
+              type: 'string',
+              enum: ['fast', 'standard', 'advanced', 'deep', 'academic', 'technical', 'documentation'],
+            },
+            maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
+            maxPages: { type: 'integer', minimum: 1, maximum: 50 },
+            timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as {
+        objective: string;
+        mode?: keyof typeof MODE_BUDGETS;
+        maxQueries?: number;
+        maxPages?: number;
+        timeMs?: number;
+      };
+
+      reply.raw.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      });
+
+      const send = (event: string, data: unknown) => {
+        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      const disconnect = new AbortController();
+      request.raw.on('close', () => disconnect.abort());
+
+      send('start', { requestId: request.id, objective: body.objective });
+
+      const engine = new ResearchEngine();
+      try {
+        const report = await engine.research(body.objective, {
+          mode: body.mode ?? 'standard',
+          budgetOverrides: {
+            ...(body.maxQueries ? { maxQueries: body.maxQueries } : {}),
+            ...(body.maxPages ? { maxPages: body.maxPages } : {}),
+            ...(body.timeMs ? { timeMs: body.timeMs } : {}),
+          },
+          search: async (queryText, maxResults) => {
+            const r = await orchestrator.search({
+              query: queryText,
+              maxResults,
+              freshness: 'any',
+              category: 'web',
+            });
+            return r.results;
+          },
+          extractContent: async (url) => {
+            try {
+              const fetched = await fetchUrl(url, { timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024 });
+              if (fetched.statusCode !== 200) return null;
+              const doc = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+              return {
+                title: doc.title ?? url,
+                content: doc.content,
+                publishedAt: doc.metadata?.publishedAt,
+              };
+            } catch {
+              return null;
+            }
+          },
+          onEvent: (event) => {
+            if (event.type === 'completed') return; // sent explicitly below
+            send(event.type, event as Record<string, unknown>);
+          },
+          signal: disconnect.signal,
+        });
+        send('completed', { report });
+      } catch (err) {
+        send('error', { message: err instanceof Error ? err.message : 'research failed' });
+      }
+      reply.raw.end();
+      return reply;
+    }
+  );
+
   // --- v1/search/batch ---------------------------------------------------------
   app.post(
     '/v1/search/batch',
