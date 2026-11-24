@@ -143,14 +143,27 @@ export function isSafeOutboundUrl(input: string): boolean {
   }
   if (isPrivateIpv4(host)) return false;
   // Bracketed IPv6 literals ([::1], [fe80::1], ...): validate the inner
-  // address with the full resolver-grade checks.
+  // address with the full resolver-grade checks. NOTE: the WHATWG URL
+  // parser NORMALIZES embedded IPv4 (e.g. [::ffff:169.254.169.254]
+  // arrives as ::ffff:a9fe:a9fe), so the decoder below must handle the
+  // hex-compressed mapped form — matching dotted quads only would let
+  // compressed mapped metadata addresses through (audit finding).
   const v6 = host.match(/^\[(.+)\]$/);
   if (v6) {
-    // Import cycle avoidance: inline the v6 classification here.
     const addr = v6[1]!.toLowerCase();
     if (addr === "::" || addr === "::1") return false;
+    // Dotted mapped form.
     const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
     if (mapped && isPrivateIpv4(mapped[1]!)) return false;
+    // Hex-compressed mapped form: last two hextets encode the v4 pair
+    // (a9fe:a9fe == 169.254.169.254).
+    const compressed = addr.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (compressed) {
+      const hi = parseInt(compressed[1]!, 16);
+      const lo = parseInt(compressed[2]!, 16);
+      const v4 = `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+      if (isPrivateIpv4(v4)) return false;
+    }
     if (addr.startsWith("fc") || addr.startsWith("fd")) return false; // unique local
     if (/^fe[89ab]/.test(addr)) return false; // link local fe80::/10
     return true;

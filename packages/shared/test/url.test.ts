@@ -109,3 +109,24 @@ describe("passesDomainFilters", () => {
     );
   });
 });
+
+describe("IPv6 literal bypass vectors (audit regressions)", () => {
+  it("blocks compressed mapped metadata addresses", () => {
+    // The WHATWG parser normalizes [::ffff:169.254.169.254] to the
+    // hex-compressed form; dotted-quad-only matching missed it.
+    expect(isSafeOutboundUrl("http://[::ffff:169.254.169.254]/")).toBe(false);
+    expect(isSafeOutboundUrl("http://[::ffff:a9fe:a9fe]/")).toBe(false);
+  });
+
+  it("blocks compressed mapped private ranges", () => {
+    expect(isSafeOutboundUrl("http://[::ffff:10.0.0.1]/")).toBe(false);
+    expect(isSafeOutboundUrl("http://[::ffff:ac10:1]/")).toBe(false); // 172.16.0.1 compressed
+    expect(isSafeOutboundUrl("http://[::ffff:c0a8:1]/")).toBe(false); // 192.168.0.1 compressed
+    expect(isSafeOutboundUrl("http://[::ffff:7f00:1]/")).toBe(false); // 127.0.0.1 compressed
+  });
+
+  it("allows public addresses in mapped form", () => {
+    expect(isSafeOutboundUrl("http://[::ffff:8.8.8.8]/")).toBe(true);
+    expect(isSafeOutboundUrl("http://[::ffff:808:808]/")).toBe(true); // 8.8.8.8 compressed
+  });
+});
