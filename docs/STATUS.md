@@ -52,20 +52,22 @@ Both fixed; suite now guards against regression.
 
 ## Known limitations
 
-- Postgres stores exist (`packages/database`) but the API does not yet
-  auto-wire them when DATABASE_URL is set — the in-memory engines are
-  the runtime default. Wiring is the next infrastructure task.
+- Postgres persistence covers documents; jobs/api-keys/usage tables
+  exist in the schema but their stores are not yet wired into the API
+  request path.
 - No SSE for the dashboard research view (API streams; page polls).
 - Browser rendering (Playwright) not yet implemented.
 - PDF extraction not yet implemented.
 - Embeddings default to deterministic hash vectors; the OpenAI-
   compatible embedder activates only when configured.
+- Postgres rehydration loads the corpus into memory on boot; very
+  large corpora will need the SQL read path (fullTextSearch) exposed.
 
 ## Next tasks (priority order)
 
-1. Wire Postgres persistence into the API when DATABASE_URL is present
-   (documents/jobs/api-keys/usage) with automatic fallback to memory.
-2. OpenAPI specification + docs app (documentation site).
-3. Jobs API: /v1/jobs endpoints over the queue (submit, poll, cancel).
-4. Playwright browser rendering path for JS-heavy extraction.
-5. PDF extraction.
+1. Jobs API: /v1/jobs endpoints (submit crawl/index/research, poll
+   status, cancel) over the queue.
+2. Playwright browser rendering path for JS-heavy extraction.
+3. PDF extraction.
+4. Wire api-keys/usage stores into the request path.
+5. Documentation site (apps/docs).
