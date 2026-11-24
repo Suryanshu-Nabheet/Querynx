@@ -22,6 +22,11 @@ import {
   type RetrievalHit,
 } from '@querynx/indexer';
 import {
+  ResearchEngine,
+  MODE_BUDGETS,
+  type ResearchEvent,
+} from '@querynx/research';
+import {
   TokenBucketRateLimiter,
   toSafeError,
   UnauthorizedError,
@@ -339,6 +344,138 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   app.get('/v1/providers', async () => ({
     providers: orchestrator.getProviderHealth(),
   }));
+
+  // --- v1/search/batch ---------------------------------------------------------
+  app.post(
+    '/v1/search/batch',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['queries'],
+          properties: {
+            queries: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 20,
+              items: { type: 'string', minLength: 1, maxLength: 500 },
+            },
+            maxResults: { type: 'integer', minimum: 1, maximum: 50 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as { queries: string[]; maxResults?: number };
+      const maxResults = body.maxResults ?? 5;
+
+      // Queries run under the orchestrator's own concurrency limits;
+      // the batch endpoint itself is a bounded fan-out.
+      const responses = await Promise.all(
+        body.queries.map(async (queryText) => {
+          const query: SearchQuery = {
+            query: queryText.trim(),
+            maxResults,
+            freshness: 'any',
+            category: 'web',
+          };
+          const cacheKey = searchCacheKey({
+            query: query.query,
+            maxResults,
+            freshness: 'any',
+            category: 'web',
+          });
+          try {
+            const response = await searchCache.getOrCompute(cacheKey, async () => {
+              const r = await orchestrator.search(query);
+              return { ...r, diagnostics: { ...r.diagnostics, cacheHit: false } };
+            });
+            return { ok: true, ...response };
+          } catch (err) {
+            return {
+              query: queryText,
+              ok: false,
+              error: err instanceof Error ? err.message : 'search failed',
+            };
+          }
+        })
+      );
+      return { responses, generatedAt: new Date().toISOString(), requestId: request.id };
+    }
+  );
+
+  // --- v1/research ---------------------------------------------------------------
+  app.post(
+    '/v1/research',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['objective'],
+          properties: {
+            objective: { type: 'string', minLength: 3, maxLength: 1000 },
+            mode: {
+              type: 'string',
+              enum: ['fast', 'standard', 'advanced', 'deep', 'academic', 'technical', 'documentation'],
+            },
+            maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
+            maxPages: { type: 'integer', minimum: 1, maximum: 50 },
+            timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as {
+        objective: string;
+        mode?: keyof typeof MODE_BUDGETS;
+        maxQueries?: number;
+        maxPages?: number;
+        timeMs?: number;
+      };
+
+      const engine = new ResearchEngine();
+      const events: ResearchEvent[] = [];
+
+      const report = await engine.research(body.objective, {
+        mode: body.mode ?? 'standard',
+        budgetOverrides: {
+          ...(body.maxQueries ? { maxQueries: body.maxQueries } : {}),
+          ...(body.maxPages ? { maxPages: body.maxPages } : {}),
+          ...(body.timeMs ? { timeMs: body.timeMs } : {}),
+        },
+        search: async (queryText, maxResults) => {
+          const r = await orchestrator.search({
+            query: queryText,
+            maxResults,
+            freshness: 'any',
+            category: 'web',
+          });
+          return r.results;
+        },
+        extractContent: async (url) => {
+          try {
+            const fetched = await fetchUrl(url, { timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024 });
+            if (fetched.statusCode !== 200) return null;
+            const doc = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+            return {
+              title: doc.title ?? url,
+              content: doc.content,
+              publishedAt: doc.metadata?.publishedAt,
+            };
+          } catch {
+            return null;
+          }
+        },
+        onEvent: (event) => events.push(event),
+      });
+
+      reply.header('x-querynx-research-termination', report.termination);
+      return { report, events, requestId: request.id };
+    }
+  );
 
   // --- Native index: ingest and search the local corpus -----------------------
   const indexEngine = deps.indexEngine ?? new MemorySearchEngine();

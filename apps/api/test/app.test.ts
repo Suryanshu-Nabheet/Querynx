@@ -251,3 +251,76 @@ describe('Native index endpoints', () => {
     expect(res.json().error.code).toBe('VALIDATION_ERROR');
   });
 });
+
+describe('POST /v1/search/batch', () => {
+  it('runs multiple queries and returns per-query responses', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/search/batch',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { queries: ['alpha topic', 'beta topic'], maxResults: 3 },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.responses).toHaveLength(2);
+    expect(body.responses[0].ok).toBe(true);
+    expect(body.responses[0].results.length).toBeGreaterThan(0);
+  });
+
+  it('rejects empty query lists', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/search/batch',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { queries: [] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('caps batch size at 20', async () => {
+    const queries = Array.from({ length: 21 }, (_, i) => `q${i}`);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/search/batch',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { queries },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('POST /v1/research', () => {
+  it('executes a bounded research run with stub search', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/research',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: {
+        objective: 'quantum computing fundamentals',
+        mode: 'fast',
+        maxQueries: 2,
+        maxPages: 2,
+        timeMs: 5000,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.report.objective).toBe('quantum computing fundamentals');
+    expect(body.report.mode).toBe('fast');
+    expect(body.report.usage.queries).toBeLessThanOrEqual(2);
+    expect(['coverage-reached', 'budget-exhausted', 'no-results']).toContain(
+      body.report.termination
+    );
+    expect(Array.isArray(body.events)).toBe(true);
+  });
+
+  it('validates objective length', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/research',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { objective: 'ab' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

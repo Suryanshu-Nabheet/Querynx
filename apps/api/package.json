@@ -18,6 +18,7 @@
     "@querynx/fetcher": "workspace:*",
     "@querynx/indexer": "workspace:*",
     "@querynx/providers": "workspace:*",
+    "@querynx/research": "workspace:*",
     "@querynx/shared": "workspace:*",
     "@querynx/types": "workspace:*",
     "fastify": "^5.2.1"

@@ -196,6 +196,9 @@ importers:
       '@querynx/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@querynx/research':
+        specifier: workspace:*
+        version: link:../../packages/research
       '@querynx/shared':
         specifier: workspace:*
         version: link:../../packages/shared
