@@ -232,6 +232,31 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
 
+  packages/crawler:
+    dependencies:
+      '@querynx/extractor':
+        specifier: workspace:*
+        version: link:../extractor
+      '@querynx/fetcher':
+        specifier: workspace:*
+        version: link:../fetcher
+      '@querynx/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@querynx/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
+
   packages/extractor:
     dependencies:
       '@mozilla/readability':
