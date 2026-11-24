@@ -27,7 +27,8 @@
     "@querynx/shared": "workspace:*",
     "@querynx/tavily-compat": "workspace:*",
     "@querynx/types": "workspace:*",
-    "fastify": "^5.2.1"
+    "fastify": "^5.2.1",
+    "undici": "^7.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

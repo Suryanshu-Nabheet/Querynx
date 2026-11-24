@@ -42,6 +42,7 @@ import type { ApiConfig } from './config.js';
 import { PersistentIndex } from './persistence.js';
 import { registerApiJobHandlers, serializeJob } from './jobs.js';
 import { JobBridge, makeDelegatingStore } from './job-bridge.js';
+import { deliverWebhook, validWebhookTarget } from './webhooks.js';
 import { JobQueue } from '@querynx/queue';
 import { randomUUID } from 'node:crypto';
 
@@ -553,6 +554,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
             maxPages: { type: 'integer', minimum: 1, maximum: 50 },
             timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
+            webhook: { type: 'string', maxLength: 2048 },
           },
         },
       },
@@ -564,7 +566,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         maxQueries?: number;
         maxPages?: number;
         timeMs?: number;
+        webhook?: string;
       };
+      if (body.webhook && !validWebhookTarget(body.webhook)) {
+        throw new ValidationError(`Webhook target rejected: ${body.webhook}`);
+      }
 
       reply.raw.writeHead(200, {
         'content-type': 'text/event-stream',
@@ -707,6 +713,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             maxQueries: { type: 'integer', minimum: 1, maximum: 20 },
             maxPages: { type: 'integer', minimum: 1, maximum: 50 },
             timeMs: { type: 'integer', minimum: 1000, maximum: 600_000 },
+            webhook: { type: 'string', maxLength: 2048 },
           },
         },
       },
@@ -718,7 +725,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         maxQueries?: number;
         maxPages?: number;
         timeMs?: number;
+        webhook?: string;
       };
+      if (body.webhook && !validWebhookTarget(body.webhook)) {
+        throw new ValidationError(`Webhook target rejected: ${body.webhook}`);
+      }
 
       const engine = new ResearchEngine();
       const events: ResearchEvent[] = [];
@@ -757,6 +768,27 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       });
 
       reply.header('x-querynx-research-termination', report.termination);
+
+      // Best-effort webhook delivery after the caller has the report.
+      if (body.webhook) {
+        void deliverWebhook(
+          {
+            url: body.webhook,
+            event: 'research.completed',
+            payload: {
+              objective: body.objective,
+              report,
+            },
+            requestId: request.id,
+          },
+          { secret: process.env['QUERYNX_WEBHOOK_SECRET'] }
+        ).then((result) => {
+          request.log.info(
+            { webhook: result.url, ok: result.ok, attempts: result.attempts },
+            'webhook delivery finished'
+          );
+        });
+      }
       return { report, events, requestId: request.id };
     }
   );
