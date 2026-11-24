@@ -1,0 +1,33 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/docker/**"
+      - "apps/api/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "infrastructure/docker/**"
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -f infrastructure/docker/Dockerfile.api -t querynx-api:ci .
+      - name: Boot the container and probe health
+        run: |
+          docker run -d --name querynx-ci -p 3001:3001 \
+            -e HOST=0.0.0.0 -e PORT=3001 querynx-api:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3001/health; then
+              echo "health OK"; docker rm -f querynx-ci; exit 0
+            fi
+            sleep 2
+          done
+          echo "health check failed"; docker logs querynx-ci; docker rm -f querynx-ci; exit 1

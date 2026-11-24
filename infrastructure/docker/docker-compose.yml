@@ -1,0 +1,56 @@
+# Self-hosted Querynx stack.
+#
+#   docker compose -f infrastructure/docker/docker-compose.yml up
+#
+# Brings up:
+#   - searxng: keyless metasearch backend (Querynx's default provider)
+#   - api: the Querynx HTTP service, wired to SearXNG
+#
+# No API keys required. The API listens on http://localhost:3001.
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: querynx-searxng
+    restart: unless-stopped
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-please-change-me}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    # JSON output must be enabled for the Querynx provider adapter.
+    # The base image enables the JSON format by default for /search?format=json
+    # when limiter is off; config below keeps it explicit and rate-limits
+    # bots via the built-in botdetection.
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    container_name: querynx-api
+    restart: unless-stopped
+    depends_on:
+      - searxng
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - SEARXNG_BASE_URL=http://searxng:8080
+      # Open in dev mode (no API keys required). Set QUERYNX_API_KEYS
+      # for production.
+      - QUERYNX_API_KEYS=${QUERYNX_API_KEYS:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - SEARCH_CACHE_TTL_MS=${SEARCH_CACHE_TTL_MS:-300000}
+      - PRODUCER_CONCURRENCY=${PRODUCER_CONCURRENCY:-4}
+    ports:
+      - "127.0.0.1:3001:3001"
+    read_only: true
+    tmpfs:
+      - /tmp

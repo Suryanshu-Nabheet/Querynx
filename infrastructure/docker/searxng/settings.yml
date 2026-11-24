@@ -1,0 +1,16 @@
+# SearXNG settings for the Querynx stack.
+# Base image settings with the JSON API format enabled for the
+# Querynx provider adapter, and the bot limiter on.
+
+use_default_settings: true
+
+server:
+  secret_key: "override-via-SEARXNG_SECRET"
+  limiter: true
+  image_proxy: true
+
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json
