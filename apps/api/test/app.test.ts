@@ -527,12 +527,13 @@ describe('Jobs API', () => {
         headers: { 'x-api-key': 'test-key-123' },
       });
       expect(poll.statusCode).toBe(200);
-      final = poll.json();
-      if (['completed', 'dead', 'cancelled'].includes(final.job.status)) break;
+      const body = poll.json() as { job: { status: string; error: string | null } };
+      final = body;
+      if (['completed', 'dead', 'cancelled'].includes(body.job.status)) break;
       await new Promise((r) => setTimeout(r, 100));
     }
-    expect(final).not.toBeNull();
-    expect(['completed', 'dead']).toContain(final!.job.status);
+    if (final === null) throw new Error('job never reached a terminal state');
+    expect(['completed', 'dead']).toContain(final.job.status);
   }, 20_000);
 
   it('returns 404 for unknown job ids', async () => {
