@@ -41,6 +41,10 @@ export function canonicalizeUrl(input: string): string | null {
 
   u.hash = '';
   u.hostname = u.hostname.toLowerCase();
+  // Strip credentials: userinfo in canonical URLs is a leakage risk
+  // (they end up in logs, cache keys and the index).
+  u.username = '';
+  u.password = '';
 
   if (
     (u.protocol === 'https:' && u.port === '443') ||
@@ -138,6 +142,19 @@ export function isSafeOutboundUrl(input: string): boolean {
     return false;
   }
   if (isPrivateIpv4(host)) return false;
+  // Bracketed IPv6 literals ([::1], [fe80::1], ...): validate the inner
+  // address with the full resolver-grade checks.
+  const v6 = host.match(/^\[(.+)\]$/);
+  if (v6) {
+    // Import cycle avoidance: inline the v6 classification here.
+    const addr = v6[1]!.toLowerCase();
+    if (addr === '::' || addr === '::1') return false;
+    const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped && isPrivateIpv4(mapped[1]!)) return false;
+    if (addr.startsWith('fc') || addr.startsWith('fd')) return false; // unique local
+    if (/^fe[89ab]/.test(addr)) return false; // link local fe80::/10
+    return true;
+  }
   return true;
 }
 

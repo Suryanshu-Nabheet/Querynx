@@ -4,5 +4,6 @@ packages:
   - "integrations/*"
   - "sdk/typescript"
   - "benchmarks"
+  - "tests"
 allowBuilds:
   esbuild: true

@@ -1,0 +1,26 @@
+{
+  "name": "@querynx/tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-layer test suites: security regressions, integration and e2e scenarios",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@querynx/fetcher": "workspace:*",
+    "@querynx/extractor": "workspace:*",
+    "@querynx/security": "workspace:*",
+    "@querynx/auth": "workspace:*",
+    "@querynx/shared": "workspace:*",
+    "undici": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}
