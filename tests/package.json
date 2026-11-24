@@ -18,7 +18,9 @@
     "@querynx/shared": "workspace:*",
     "undici": "^7.2.0",
     "@querynx/providers": "workspace:*",
-    "@querynx/api": "workspace:*"
+    "@querynx/api": "workspace:*",
+    "@querynx/types": "workspace:*",
+    "fastify": "^5.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
