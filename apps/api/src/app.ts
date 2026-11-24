@@ -17,6 +17,11 @@ import { TTLCache, searchCacheKey } from '@querynx/cache';
 import { fetchUrl } from '@querynx/fetcher';
 import { extractDocument } from '@querynx/extractor';
 import {
+  MemorySearchEngine,
+  fromExtractedDocument,
+  type RetrievalHit,
+} from '@querynx/indexer';
+import {
   TokenBucketRateLimiter,
   toSafeError,
   UnauthorizedError,
@@ -32,6 +37,8 @@ export interface AppDeps {
   config: ApiConfig;
   /** Allows tests to inject a custom orchestrator. */
   orchestrator?: SearchOrchestrator;
+  /** Allows tests to inject a preloaded index engine. */
+  indexEngine?: MemorySearchEngine;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -332,6 +339,133 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   app.get('/v1/providers', async () => ({
     providers: orchestrator.getProviderHealth(),
   }));
+
+  // --- Native index: ingest and search the local corpus -----------------------
+  const indexEngine = deps.indexEngine ?? new MemorySearchEngine();
+
+  /**
+   * POST /v1/index — fetch a URL (or accept inline content), extract and
+   * add it to the persistent local corpus. Returns the indexed document.
+   */
+  app.post(
+    '/v1/index',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['collection'],
+          properties: {
+            collection: { type: 'string', minLength: 1, maxLength: 100 },
+            url: { type: 'string', maxLength: 2048 },
+            content: { type: 'string', maxLength: 500_000 },
+            title: { type: 'string', maxLength: 500 },
+          },
+          anyOf: [{ required: ['url'] }, { required: ['content'] }],
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        collection: string;
+        url?: string;
+        content?: string;
+        title?: string;
+      };
+
+      if (body.url) {
+        const canonical = canonicalizeUrl(body.url);
+        if (!canonical) throw new ValidationError(`Invalid URL: ${body.url}`);
+        if (!isSafeOutboundUrl(canonical)) {
+          throw new ValidationError(`Blocked URL target: ${body.url}`);
+        }
+        const fetched = await fetchUrl(canonical, {
+          timeoutMs: 15_000,
+          maxBytes: 5 * 1024 * 1024,
+        });
+        if (fetched.statusCode !== 200) {
+          throw new ValidationError(`Fetch returned HTTP ${fetched.statusCode}`);
+        }
+        const document = extractDocument(fetched.body, fetched.url, fetched.statusCode);
+        const indexed = indexEngine.index({
+          ...fromExtractedDocument(document, body.collection),
+        });
+        return { document: indexed, stats: indexEngine.stats(), requestId: request.id };
+      }
+
+      // Inline content path: no fetch, direct ingest.
+      const indexed = indexEngine.index({
+        url: body.url ?? `inline://${request.id}`,
+        title: body.title ?? 'Untitled',
+        content: body.content!,
+        collection: body.collection,
+        fingerprint: `inline-${request.id}`,
+      });
+      return { document: indexed, stats: indexEngine.stats(), requestId: request.id };
+    }
+  );
+
+  /** GET /v1/index/stats — corpus statistics. */
+  app.get('/v1/index/stats', async (request) => ({
+    stats: indexEngine.stats(),
+    requestId: request.id,
+  }));
+
+  /**
+   * POST /v1/search/semantic — BM25 search over the local corpus.
+   * (Vector search fuses in when embeddings are configured; the
+   * retrieval contract is identical either way.)
+   */
+  app.post(
+    '/v1/search/semantic',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['query'],
+          properties: {
+            query: { type: 'string', minLength: 1, maxLength: 500 },
+            collection: { type: 'string', maxLength: 100 },
+            limit: { type: 'integer', minimum: 1, maximum: 50 },
+            domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
+            publishedAfter: { type: 'string', maxLength: 40 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        query: string;
+        collection?: string;
+        limit?: number;
+        domains?: string[];
+        publishedAfter?: string;
+      };
+      const hits: RetrievalHit[] = indexEngine.search({
+        query: body.query,
+        collection: body.collection,
+        limit: body.limit ?? 10,
+        domains: body.domains,
+        publishedAfter: body.publishedAfter,
+      });
+      return {
+        results: hits.map((hit) => ({
+          title: hit.document.title,
+          url: hit.document.url,
+          snippet: hit.document.content.slice(0, 300),
+          score: hit.score,
+          provider: 'querynx-index',
+          matchedTerms: hit.matchedTerms,
+          collection: hit.document.collection,
+          publishedAt: hit.document.publishedAt,
+        })),
+        query: body.query,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    }
+  );
 
   return app;
 

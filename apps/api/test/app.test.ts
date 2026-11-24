@@ -189,3 +189,65 @@ describe('GET /metrics', () => {
     expect(res.body).toContain('querynx_cache_entries');
   });
 });
+
+describe('Native index endpoints', () => {
+  it('ingests inline content and retrieves it', async () => {
+    const ingest = await app.inject({
+      method: 'POST',
+      url: '/v1/index',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: {
+        collection: 'test-corpus',
+        title: 'Vector databases overview',
+        content:
+          'Vector databases store embeddings for similarity search. pgvector extends PostgreSQL with vector columns and ANN indexes.',
+      },
+    });
+    expect(ingest.statusCode).toBe(200);
+    expect(ingest.json().document.collection).toBe('test-corpus');
+
+    const search = await app.inject({
+      method: 'POST',
+      url: '/v1/search/semantic',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { query: 'similarity search embeddings', collection: 'test-corpus' },
+    });
+    expect(search.statusCode).toBe(200);
+    const body = search.json();
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results[0].provider).toBe('querynx-index');
+    expect(body.results[0].title).toBe('Vector databases overview');
+  });
+
+  it('reports index stats', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/index/stats',
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().stats.documents).toBeGreaterThan(0);
+    expect(res.json().stats.uniqueTerms).toBeGreaterThan(0);
+  });
+
+  it('requires url or content for ingest', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/index',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { collection: 'x' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects SSRF urls on ingest', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/index',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { collection: 'x', url: 'http://169.254.169.254/latest' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
+});
