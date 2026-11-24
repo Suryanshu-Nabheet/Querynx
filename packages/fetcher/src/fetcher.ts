@@ -29,6 +29,12 @@ export {
 } from "./dns.js";
 
 export interface FetcherOptions {
+  /** HTTP method (default GET). POST is supported for platform calls
+   * (model endpoints, webhook deliveries); every safety check applies
+   * identically. */
+  method?: "GET" | "POST";
+  /** Request body (POST). Capped to 5 MiB. */
+  body?: string;
   /** Per-request timeout (default 15s). */
   timeoutMs?: number;
   /** Maximum response body bytes (default 5 MiB). */
@@ -104,6 +110,8 @@ export async function fetchUrl(
   options: FetcherOptions = {},
 ): Promise<FetchResult> {
   const {
+    method = "GET",
+    body,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxBytes = DEFAULT_MAX_BYTES,
     maxRedirects = DEFAULT_MAX_REDIRECTS,
@@ -111,6 +119,13 @@ export async function fetchUrl(
     headers = {},
     signal,
   } = options;
+
+  if (body && body.length > 5 * 1024 * 1024) {
+    throw new Error(`Request body exceeds 5MiB cap (${body.length} bytes)`);
+  }
+  if (body && method !== "POST") {
+    throw new Error("A request body requires method POST");
+  }
 
   let currentUrl = url;
   let redirects = 0;
@@ -129,7 +144,8 @@ export async function fetchUrl(
     try {
       response = await undiciRequest(currentUrl, {
         dispatcher: getAgent(),
-        method: "GET",
+        method,
+        ...(body ? { body } : {}),
         headersTimeout: timeoutMs,
         bodyTimeout: timeoutMs,
         headers: {
