@@ -141,7 +141,10 @@ export function validatingLookup(
   ) => void,
 ): void {
   const wantsAll = options.all === true;
-  dnsLookup(hostname, { all: true, verbatim: true, hints: options.hints })
+  // NOTE: undici passes its own hints bitmask (e.g. 1024) which Node's
+  // dns.lookup rejects — we do our own address filtering, so hints are
+  // deliberately not forwarded.
+  dnsLookup(hostname, { all: true, verbatim: true })
     .then((addresses: LookupAddress[]) => {
       if (addresses.length === 0) {
         const err = new DnsValidationError(hostname, "no addresses returned");
