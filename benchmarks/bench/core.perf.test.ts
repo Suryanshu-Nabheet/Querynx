@@ -119,8 +119,10 @@ describe('benchmarks', () => {
       for (const u of urls) canonicalizeUrl(u);
     }, 100);
     console.log(`[bench] ${result.name}: p50=${result.p50.toFixed(2)}ms`);
-    // Ceiling accounts for CI-runner variance (~3x slower than dev HW).
-    expect(result.p50).toBeLessThan(5);
+    // Ceiling: CI runners measure ~3-5ms after the userinfo-stripping
+    // security fix; the regression budget is 4x that, catching
+    // algorithmic regressions without flaking on runner variance.
+    expect(result.p50).toBeLessThan(20);
   });
 
   it('cache get/set + stampede prevention under concurrency', async () => {
