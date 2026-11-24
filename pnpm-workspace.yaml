@@ -7,3 +7,4 @@ packages:
   - "tests"
 allowBuilds:
   esbuild: true
+  tree-sitter: true

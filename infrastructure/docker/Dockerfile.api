@@ -23,12 +23,14 @@ COPY packages/crawler/package.json packages/crawler/
 COPY packages/indexer/package.json packages/indexer/
 COPY packages/research/package.json packages/research/
 COPY packages/ranking/package.json packages/ranking/
+COPY integrations/tavily-compatible/package.json integrations/tavily-compatible/
 
-RUN pnpm install --frozen-lockfile --filter @querynx/api...
+RUN pnpm install --frozen-lockfile --filter @querynx/api... --filter @querynx/tavily-compat...
 
 # Application sources.
 COPY tsconfig.base.json turbo.json ./
 COPY packages packages
+COPY integrations/tavily-compatible integrations/tavily-compatible
 COPY apps/api apps/api
 
 # Non-root runtime user with a writable cache rooted inside /app
