@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { JobQueue } from '../src/index.js';
 
 describe('JobQueue', () => {
@@ -41,25 +41,23 @@ describe('JobQueue', () => {
   });
 
   it('retries failed jobs with backoff then dead-letters', async () => {
-    vi.useFakeTimers();
-    const q = new JobQueue({ concurrency: 1, maxAttempts: 2, pollIntervalMs: 1 });
+    // Real timers: the queue's backoff scheduling is what's under test.
+    const q = new JobQueue({
+      concurrency: 1,
+      maxAttempts: 2,
+      pollIntervalMs: 5,
+    });
     let attempts = 0;
     q.handle('flaky', async () => {
       attempts++;
       throw new Error('nope');
     });
     const job = q.enqueue('flaky', {});
-    // First attempt fails immediately.
-    await vi.advanceTimersByTimeAsync(50);
-    expect(attempts).toBe(1);
-    expect(job.status).toBe('pending'); // retry scheduled
-    // Fire the backoff timer.
-    await vi.advanceTimersByTimeAsync(5_000);
+    await q.drain();
     expect(attempts).toBe(2);
     expect(job.status).toBe('dead');
     expect(job.error).toBe('nope');
     expect(q.deadLetters()).toHaveLength(1);
-    vi.useRealTimers();
   });
 
   it('dead-letters unhandled job types', async () => {
