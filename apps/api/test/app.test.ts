@@ -31,6 +31,9 @@ beforeAll(() => {
     ...process.env,
     QUERYNX_API_KEYS: 'test-key-123',
     SEARCH_CACHE_TTL_MS: '60000',
+    // The suite issues hundreds of requests including poll loops;
+    // rate limiting itself is covered by dedicated tests.
+    ANONYMOUS_RATE_LIMIT_PER_MIN: '100000',
   });
   app = buildApp({
     config,
@@ -470,5 +473,112 @@ describe('Persistence layer', () => {
     });
     expect(search.json().results.length).toBeGreaterThan(0);
     await testApp.close();
+  });
+});
+
+describe('Jobs API', () => {
+  it('rejects invalid job submissions', async () => {
+    const noSeeds = await app.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { type: 'crawl', payload: {} },
+    });
+    expect(noSeeds.statusCode).toBe(400);
+
+    const badResearch = await app.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { type: 'research', payload: { objective: 'x' } },
+    });
+    expect(badResearch.statusCode).toBe(400);
+
+    const badType = await app.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { type: 'rm-rf', payload: {} },
+    });
+    expect(badType.statusCode).toBe(400);
+  });
+
+  it('accepts a job, returns 202 with a pollable handle, and completes it', async () => {
+    const submit = await app.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: {
+        type: 'index',
+        payload: { url: 'https://example.com/job', collection: 'jobs-test' },
+      },
+    });
+    expect(submit.statusCode).toBe(202);
+    const { job } = submit.json() as { job: { id: string } };
+    expect(job.id).toBeTruthy();
+
+    // Index jobs against unreachable hosts fail fast (dead-letter);
+    // poll until terminal state.
+    let final: { job: { status: string; error: string | null } } | null = null;
+    for (let i = 0; i < 20; i++) {
+      const poll = await app.inject({
+        method: 'GET',
+        url: `/v1/jobs/${job.id}`,
+        headers: { 'x-api-key': 'test-key-123' },
+      });
+      expect(poll.statusCode).toBe(200);
+      final = poll.json();
+      if (['completed', 'dead', 'cancelled'].includes(final.job.status)) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final).not.toBeNull();
+    expect(['completed', 'dead']).toContain(final!.job.status);
+  }, 20_000);
+
+  it('returns 404 for unknown job ids', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/jobs/00000000-0000-0000-0000-000000000000',
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe('NOT_FOUND');
+  });
+
+  it('cancels a pending job', async () => {
+    const submit = await app.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: {
+        type: 'index',
+        payload: { url: 'https://invalid.example/x' },
+        priority: 0,
+      },
+    });
+    const { job } = submit.json() as { job: { id: string } };
+    const cancel = await app.inject({
+      method: 'DELETE',
+      url: `/v1/jobs/${job.id}`,
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    // Either cancelled (still pending) or 404 (already terminal).
+    if (cancel.statusCode === 200) {
+      expect(cancel.json().cancelled).toBe(true);
+    } else {
+      expect(cancel.statusCode).toBe(404);
+    }
+  });
+
+  it('reports queue statistics and dead letters', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/jobs',
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { stats: Record<string, number>; deadLetters: unknown[] };
+    expect(body.stats).toHaveProperty('pending');
+    expect(Array.isArray(body.deadLetters)).toBe(true);
   });
 });

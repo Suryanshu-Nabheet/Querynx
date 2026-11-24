@@ -39,6 +39,8 @@ import {
 import type { SearchQuery, SearchResponse } from '@querynx/types';
 import type { ApiConfig } from './config.js';
 import { PersistentIndex } from './persistence.js';
+import { registerApiJobHandlers, serializeJob } from './jobs.js';
+import { JobQueue } from '@querynx/queue';
 import { randomUUID } from 'node:crypto';
 
 export interface AppDeps {
@@ -47,6 +49,8 @@ export interface AppDeps {
   orchestrator?: SearchOrchestrator;
   /** Allows tests to inject a preloaded index (memory or persistent). */
   indexEngine?: PersistentIndex;
+  /** Allows tests to inject a custom job queue. */
+  jobQueue?: JobQueue;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -723,6 +727,86 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     console.warn(`[persistence] rehydrate failed: ${err instanceof Error ? err.message : String(err)}`);
   });
   const indexEngine = persistentIndex.engine;
+
+  // --- v1/jobs: async job submission over the queue ------------------------------
+  // The in-process queue powers crawl/index/research as durable async
+  // jobs: submit, poll, cancel. The Postgres JobStore (SKIP LOCKED)
+  // drops in for multi-worker deployments when DATABASE_URL is set.
+  const jobQueue = deps.jobQueue ?? new JobQueue({ concurrency: 2 });
+  registerApiJobHandlers({ queue: jobQueue, index: persistentIndex });
+
+  app.post(
+    '/v1/jobs',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['type', 'payload'],
+          properties: {
+            type: { type: 'string', enum: ['crawl', 'index', 'research'] },
+            payload: { type: 'object', additionalProperties: true },
+            priority: { type: 'integer', minimum: 0, maximum: 10 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as {
+        type: 'crawl' | 'index' | 'research';
+        payload: Record<string, unknown>;
+        priority?: number;
+      };
+      // Validate payload shape per type before enqueueing.
+      if (body.type === 'crawl' && !Array.isArray(body.payload['seeds'])) {
+        throw new ValidationError('crawl jobs require payload.seeds');
+      }
+      if (body.type === 'index' && typeof body.payload['url'] !== 'string') {
+        throw new ValidationError('index jobs require payload.url');
+      }
+      if (
+        body.type === 'research' &&
+        (typeof body.payload['objective'] !== 'string' ||
+          String(body.payload['objective']).length < 3)
+      ) {
+        throw new ValidationError('research jobs require payload.objective');
+      }
+
+      const job = jobQueue.enqueue(body.type, body.payload, {
+        priority: body.priority ?? 0,
+      });
+      reply.code(202);
+      return { job: serializeJob(job), requestId: request.id };
+    }
+  );
+
+  app.get('/v1/jobs/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const job = jobQueue.get(id);
+    if (!job) {
+      reply.code(404);
+      return { error: { code: 'NOT_FOUND', message: `no job ${id}` }, requestId: request.id };
+    }
+    return { job: serializeJob(job), requestId: request.id };
+  });
+
+  app.delete('/v1/jobs/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const cancelled = jobQueue.cancel(id);
+    if (!cancelled) {
+      reply.code(404);
+      return { error: { code: 'NOT_FOUND', message: `job ${id} not cancellable (missing or finished)` }, requestId: request.id };
+    }
+    return { cancelled: true, requestId: request.id };
+  });
+
+  app.get('/v1/jobs', async (request) => ({
+    stats: jobQueue.stats(),
+    deadLetters: jobQueue.deadLetters().slice(-20).map(serializeJob),
+    requestId: request.id,
+  }));
+
+
 
   /**
    * POST /v1/index — fetch a URL (or accept inline content), extract and
