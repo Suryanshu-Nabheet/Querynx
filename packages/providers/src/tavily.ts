@@ -39,11 +39,29 @@ export class TavilyProvider implements SearchProvider {
     );
   }
 
+  /** Build the documented Tavily /search request body. */
+  private buildBody(query: SearchQuery): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+      query: query.query,
+      max_results: Math.min(query.maxResults * 2, 20),
+      search_depth: "basic",
+      include_answer: false,
+    };
+    if (query.includeDomains?.length)
+      body["include_domains"] = [...query.includeDomains];
+    if (query.excludeDomains?.length)
+      body["exclude_domains"] = [...query.excludeDomains];
+    if (query.publishedAfter) body["topic"] = "news";
+    return body;
+  }
+
   async search(
     query: SearchQuery,
     signal?: AbortSignal,
   ): Promise<SearchResult[]> {
     const response = await fetchUrl(`${this.baseUrl}/search`, {
+      method: "POST",
+      body: JSON.stringify(this.buildBody(query)),
       timeoutMs: this.timeoutMs,
       headers: {
         "content-type": "application/json",
@@ -57,18 +75,6 @@ export class TavilyProvider implements SearchProvider {
     if (response.statusCode !== 200) {
       throw new Error(`Tavily returned HTTP ${response.statusCode}`);
     }
-
-    const body: Record<string, unknown> = {
-      query: query.query,
-      max_results: Math.min(query.maxResults * 2, 20),
-      search_depth: "basic",
-      include_answer: false,
-    };
-    if (query.includeDomains?.length)
-      body["include_domains"] = [...query.includeDomains];
-    if (query.excludeDomains?.length)
-      body["exclude_domains"] = [...query.excludeDomains];
-    if (query.publishedAfter) body["topic"] = "news";
 
     const parsed = JSON.parse(response.body) as TavilyResponse;
     const results: SearchResult[] = [];

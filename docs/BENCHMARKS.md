@@ -7,24 +7,38 @@ tests; re-run them after touching the retrieval stack.
 ## Search quality — BM25 over fixture corpus
 
 - **Method**: `packages/ranking/test/evaluation.test.ts`
-- **Corpus**: 7 technical documents (PostgreSQL, Redis, Nginx, SQLite)
-- **Judgments**: 8 queries with known-relevant documents
+- **Corpus**: 20 technical documents with deliberately shared vocabulary
+  (four PostgreSQL, two Redis, two etcd, two Kafka, two embedded-DB
+  docs) so term matching must discriminate between near-identical
+  candidates
+- **Judgments**: 21 queries phrased descriptively (the query does not
+  name the target document)
 - **Retrieval**: `MemorySearchEngine` (Okapi BM25, k1=1.2, b=0.75),
   top-10 results per query
 
-**Measured (2026-11-24, Node 26, macOS):**
+**Measured (2026-11-24 audit reproduction, Node 26, macOS):**
 
 | Metric       | Value |
 | ------------ | ----- |
-| MRR          | 0.88  |
+| MRR          | 1.00  |
 | Recall@5     | 1.00  |
 | Recall@10    | 1.00  |
-| Precision@10 | 0.125 |
-| NDCG@10      | 0.80  |
+| Precision@10 | 0.533 |
+| NDCG@10      | 1.00  |
 
-Interpretation: every judged document is retrieved (recall 1.0) and the
-correct document is usually ranked first (MRR 0.88). Precision@10 is
-low by construction — 10 retrieved for ~1 relevant each — not a defect.
+Interpretation: every judged document is retrieved and ranked first on
+this corpus. Honest caveats: 20 documents is a small corpus — these
+numbers prove the ranker discriminates competitive candidates, not
+web-scale quality. Test thresholds (MRR >= 0.85, Recall@10 >= 0.95,
+NDCG@10 >= 0.85) sit below measurement so regressions fail loudly.
+
+Audit correction: an earlier version of this table published MRR 0.88
+/ NDCG 0.80 from a stale corpus state. Those numbers did not reproduce
+when checked against the committed corpus (which measured 1.00/1.00)
+— the table now carries only numbers regenerated from the exact
+committed fixtures, and the corpus was expanded from 7 to 20 documents
+because perfect scores on the tiny original made the evaluation
+uninformative.
 
 ## Performance — core hot paths
 
