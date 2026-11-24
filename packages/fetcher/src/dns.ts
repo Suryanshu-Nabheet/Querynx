@@ -117,21 +117,32 @@ export function isPublicIp(ip: string): boolean {
  * A dns.lookup-compatible function that validates resolved addresses.
  * Designed to be injected into undici's Agent connect options so that
  * validation and dialing share one resolution result.
+ *
+ * Contract note: undici (net/tls autoConnect family detection) calls
+ * custom lookups with `{ hints, all: true }` and expects the ALL form
+ * of the callback — `(err, addresses: LookupAddress[])` — while plain
+ * `net.connect` callers may use the single form `(err, address,
+ * family)`. This lookup honors `options.all` exactly like
+ * `dns.lookup`: when `all` is truthy the callback receives the whole
+ * validated array; otherwise a single validated address. The bug this
+ * replaced (always single-form) made undici read `undefined` from the
+ * array it expected — every hostname fetch failed on real networks.
  */
 export function validatingLookup(
   hostname: string,
-  options: { family?: number; all?: boolean } & Record<string, unknown>,
+  options: { family?: number; all?: boolean; hints?: number } & Record<string, unknown>,
   callback: (
     err: NodeJS.ErrnoException | null,
-    address: string,
-    family: number,
+    addressOrList: string | LookupAddress[],
+    family?: number,
   ) => void,
 ): void {
-  dnsLookup(hostname, { all: true, verbatim: true })
+  const wantsAll = options.all === true;
+  dnsLookup(hostname, { all: true, verbatim: true, hints: options.hints })
     .then((addresses: LookupAddress[]) => {
       if (addresses.length === 0) {
         const err = new DnsValidationError(hostname, "no addresses returned");
-        callback(err, "", 0);
+        callback(err, wantsAll ? [] : "", wantsAll ? undefined : 0);
         return;
       }
       const safe = allowPrivateNetworks
@@ -142,14 +153,18 @@ export function validatingLookup(
           hostname,
           `resolved to non-public address(es): ${addresses.map((a) => a.address).join(", ")}`,
         );
-        callback(err, "", 0);
+        callback(err, wantsAll ? [] : "", wantsAll ? undefined : 0);
         return;
       }
       // Hostnames resolving to a mix of public and private addresses get
       // pinned to the public subset only (when the strict policy is on).
-      callback(null, safe[0]!.address, safe[0]!.family);
+      if (wantsAll) {
+        callback(null, safe);
+      } else {
+        callback(null, safe[0]!.address, safe[0]!.family);
+      }
     })
     .catch((err: NodeJS.ErrnoException) => {
-      callback(err, "", 0);
+      callback(err, wantsAll ? [] : "", wantsAll ? undefined : 0);
     });
 }

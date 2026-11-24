@@ -6,6 +6,7 @@ import {
   setPrivateNetworkPolicy,
   validatingLookup,
 } from "../src/dns.js";
+import { fetchUrl } from "../src/fetcher.js";
 
 describe("isPublicIpv4", () => {
   it("accepts public addresses", () => {
@@ -62,26 +63,30 @@ describe("isPublicIpv6", () => {
 });
 
 describe("validatingLookup", () => {
-  it("resolves public hostnames", async () => {
-    const result = await new Promise<{ err: Error | null; address: string }>(
-      (resolve) => {
-        validatingLookup("example.com", {}, (err, address) =>
-          resolve({ err: err ?? null, address }),
-        );
-      },
-    );
+  it("resolves public hostnames (single-form callback)", async () => {
+    const result = await new Promise<{
+      err: Error | null;
+      address: string | Array<{ address: string; family: number }>;
+    }>((resolve) => {
+      validatingLookup("example.com", {}, (err, address) =>
+        resolve({ err: err ?? null, address }),
+      );
+    });
     expect(result.err).toBeNull();
-    expect(isPublicIp(result.address)).toBe(true);
+    // Single-form contract: a bare address string.
+    expect(typeof result.address).toBe("string");
+    expect(isPublicIp(result.address as string)).toBe(true);
   }, 15_000);
 
   it("refuses hostnames resolving to private space", async () => {
-    const result = await new Promise<{ err: Error | null; address: string }>(
-      (resolve) => {
-        validatingLookup("localhost", {}, (err, address) =>
-          resolve({ err: err ?? null, address }),
-        );
-      },
-    );
+    const result = await new Promise<{
+      err: Error | null;
+      address: string | Array<{ address: string; family: number }>;
+    }>((resolve) => {
+      validatingLookup("localhost", {}, (err, address) =>
+        resolve({ err: err ?? null, address }),
+      );
+    });
     expect(result.err).not.toBeNull();
     expect(result.err!.message).toContain("non-public");
   });
@@ -89,15 +94,17 @@ describe("validatingLookup", () => {
   it("resolves private hostnames when the operator policy allows it", async () => {
     const previous = setPrivateNetworkPolicy(true);
     try {
-      const result = await new Promise<{ err: Error | null; address: string }>(
-        (resolve) => {
-          validatingLookup("localhost", {}, (err, address) =>
-            resolve({ err: err ?? null, address }),
-          );
-        },
-      );
+      const result = await new Promise<{
+        err: Error | null;
+        address: string | Array<{ address: string; family: number }>;
+      }>((resolve) => {
+        validatingLookup("localhost", {}, (err, address) =>
+          resolve({ err: err ?? null, address }),
+        );
+      });
       expect(result.err).toBeNull();
-      expect(["127.0.0.1", "::1"]).toContain(result.address);
+      expect(typeof result.address).toBe("string");
+      expect(["127.0.0.1", "::1"]).toContain(result.address as string);
     } finally {
       setPrivateNetworkPolicy(previous);
     }
@@ -111,4 +118,77 @@ describe("validatingLookup", () => {
     });
     expect(result.err).not.toBeNull();
   }, 15_000);
+});
+
+describe("validatingLookup callback contract", () => {
+  it("serves the all-form callback when all:true (undici's call shape)", async () => {
+    const result = await new Promise<{
+      err: Error | null;
+      list?: Array<{ address: string; family: number }>;
+    }>((resolve) => {
+      validatingLookup(
+        "example.com",
+        { all: true, hints: 1024 },
+        (err, list) => resolve({ err: err ?? null, list: list as never }),
+      );
+    });
+    // Real DNS: example.com must resolve to public addresses here.
+    if (result.err === null) {
+      expect(Array.isArray(result.list)).toBe(true);
+      expect(result.list!.length).toBeGreaterThan(0);
+      for (const entry of result.list!) {
+        expect(isPublicIp(entry.address)).toBe(true);
+      }
+    } else {
+      // Offline environments: the call must still fail cleanly.
+      expect(result.list).toEqual([]);
+    }
+  }, 20_000);
+
+  it("serves the single-form callback without all:true (net.connect shape)", async () => {
+    const result = await new Promise<{
+      err: Error | null;
+      address: string | Array<{ address: string; family: number }>;
+    }>((resolve) => {
+      validatingLookup("example.com", {}, (err, address) =>
+        resolve({ err: err ?? null, address }),
+      );
+    });
+    if (typeof result.address !== "string") throw new Error("expected single-form");
+    if (result.err === null) {
+      expect(isPublicIp(result.address)).toBe(true);
+    }
+  }, 20_000);
+
+  it("all-form rejects hostnames resolving only to private space", async () => {
+    const result = await new Promise<{
+      err: Error | null;
+      list?: unknown;
+    }>((resolve) => {
+      validatingLookup("localhost", { all: true }, (err, list) =>
+        resolve({ err: err ?? null, list }),
+      );
+    });
+    expect(result.err).not.toBeNull();
+    expect(result.err!.message).toContain("non-public");
+    expect(result.list).toEqual([]);
+  });
+});
+
+describe("hostname fetch regression (the all-form bug)", () => {
+  it("fetches a real hostname through the shared validating agent", async () => {
+    // This is the exact path that returned "Invalid IP address:
+    // undefined" on every real-network fetch before the contract fix.
+    // example.com is IANA-reserved documentation domain — safe target.
+    try {
+      const result = await fetchUrl("https://example.com/", { timeoutMs: 15_000 });
+      expect(result.statusCode).toBe(200);
+      expect(result.body).toContain("Example Domain");
+    } catch (err) {
+      // Offline CI: DNS resolution may genuinely fail — but it must
+      // NEVER fail with the contract bug's signature.
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).not.toContain("Invalid IP address");
+    }
+  }, 30_000);
 });
