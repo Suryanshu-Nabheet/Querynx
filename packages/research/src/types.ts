@@ -95,6 +95,14 @@ export interface Evidence {
   publishedAt?: string;
 }
 
+/** A detected conflict between independent sources. */
+export interface Contradiction {
+  /** The question on which sources disagree. */
+  question: string;
+  /** The disagreeing sources (URLs). */
+  sources: [string, string];
+}
+
 /** An information gap: what the research could not establish. */
 export interface InformationGap {
   /** The sub-question that remains unanswered. */
@@ -115,6 +123,8 @@ export interface ResearchReport {
   evidence: Evidence[];
   /** Queries executed, in order. */
   steps: ResearchStep[];
+  /** Conflicting claims detected across independent sources. */
+  contradictions: Contradiction[];
   /** Questions the research could not answer. */
   gaps: InformationGap[];
   /** Budget consumption summary. */

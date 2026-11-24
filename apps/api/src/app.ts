@@ -51,7 +51,7 @@ import {
 import { mapWithConcurrency, extractDomain } from "@querynx/shared";
 import { CrawlEngine, fetchSitemapUrls } from "@querynx/crawler";
 import { JobQueue } from "@querynx/queue";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 
 export interface AppDeps {
   config: ApiConfig;
@@ -164,7 +164,15 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     const key =
       (request.headers["x-api-key"] as string | undefined) ??
       extractBearer(request.headers["authorization"]);
-    const envValid = key !== undefined && config.apiKeys.includes(key);
+    // Constant-time: compare hashes, not strings — same discipline as
+    // the DB path (avoids early-exit string comparison on secrets).
+    const envValid =
+      key !== undefined &&
+      config.apiKeys.some((k) => {
+        const a = Buffer.from(hashApiKey(key), "hex");
+        const b = Buffer.from(hashApiKey(k), "hex");
+        return a.length === b.length && timingSafeEqual(a, b);
+      });
     const dbValid =
       key !== undefined &&
       dbKeyHashes !== null &&

@@ -23,6 +23,7 @@ import {
   planFollowUpQuery,
   planInitialQueries,
 } from "./planner.js";
+import { detectContradictions } from "./contradictions.js";
 import {
   fingerprintSimilarity,
   fingerprintText,
@@ -72,6 +73,7 @@ export class ResearchEngine {
     const steps: ResearchStep[] = [];
     const evidence: Evidence[] = [];
     const gaps: InformationGap[] = [];
+    const contradictionsFound: Array<{ question: string; probeQuery: string; a: string; b: string }> = [];
     const seenUrls = new Set<string>();
     const seenFingerprints: string[] = [];
     let contentChars = 0;
@@ -219,6 +221,24 @@ export class ResearchEngine {
       followUpRound++;
     }
 
+    // ---- Phase 2b: contradiction detection ---------------------------
+    // Conflicting numeric/date claims across independent sources are
+    // surfaced (and probed once per run) instead of being silently
+    // averaged into the synthesis. Probing uses its own budget flag so
+    // exhausted gap rounds never suppress it.
+    const contradictions = detectContradictions(evidence);
+    let contradictionProbes = 0;
+    for (const conflict of contradictions.slice(0, 2)) {
+      if (outOfBudget()) break;
+      contradictionsFound.push(conflict);
+      emit({ type: "gap-detected", question: conflict.question });
+      if (contradictionProbes < 1) {
+        contradictionProbes++;
+        await searchRound(conflict.probeQuery, "contradiction-probe");
+        await extractPending();
+      }
+    }
+
     if (signal?.aborted) {
       return finalize("cancelled");
     }
@@ -252,6 +272,10 @@ export class ResearchEngine {
         evidence,
         steps,
         gaps,
+        contradictions: contradictionsFound.map((c) => ({
+          question: c.question,
+          sources: [c.a, c.b] as [string, string],
+        })),
         usage: {
           queries: queriesIssued,
           pagesFetched,
