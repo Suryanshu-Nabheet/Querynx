@@ -265,33 +265,49 @@ describe("contradiction detection", () => {
   it("surfaces conflicting dates from independent sources and probes them", async () => {
     const search = makeSearch({
       conflict: [
-        RESULT("Source A", "https://a.example/report", "The release happened in 2019"),
-        RESULT("Source B", "https://b.example/history", "The release happened in 2021"),
+        RESULT(
+          "Source A",
+          "https://a.example/report",
+          "The release happened in 2019",
+        ),
+        RESULT(
+          "Source B",
+          "https://b.example/history",
+          "The release happened in 2021",
+        ),
       ],
-      probe: [RESULT("Clarification", "https://c.example/timeline", "the official release was in 2021")],
+      probe: [
+        RESULT(
+          "Clarification",
+          "https://c.example/timeline",
+          "the official release was in 2021",
+        ),
+      ],
     });
     const engine = new ResearchEngine();
-    const report = await engine.research("when did the conflict release happen", {
-      mode: "standard",
-      search,
-      extractContent: async (url) => ({
-        title: `Content of ${url}`,
-        content:
-          url.includes("a.example")
+    const report = await engine.research(
+      "when did the conflict release happen",
+      {
+        mode: "standard",
+        search,
+        extractContent: async (url) => ({
+          title: `Content of ${url}`,
+          content: url.includes("a.example")
             ? "The release happened in 2019 according to records."
             : url.includes("b.example")
               ? "The release happened in 2021 per the announcement."
               : "The official release was in 2021.",
-      }),
-      budgetOverrides: { maxPages: 5, maxQueries: 6 },
-    });
+        }),
+        budgetOverrides: { maxPages: 5, maxQueries: 6 },
+      },
+    );
     expect(report.contradictions.length).toBeGreaterThan(0);
     expect(report.contradictions[0]!.sources).toHaveLength(2);
     expect(report.contradictions[0]!.question).toContain("disagree");
     // A contradiction-probe step was issued.
-    expect(
-      report.steps.some((s) => s.reason === "contradiction-probe"),
-    ).toBe(true);
+    expect(report.steps.some((s) => s.reason === "contradiction-probe")).toBe(
+      true,
+    );
   });
 
   it("reports no contradictions when sources agree", async () => {

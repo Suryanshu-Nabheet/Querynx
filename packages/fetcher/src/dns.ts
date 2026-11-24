@@ -130,7 +130,10 @@ export function isPublicIp(ip: string): boolean {
  */
 export function validatingLookup(
   hostname: string,
-  options: { family?: number; all?: boolean; hints?: number } & Record<string, unknown>,
+  options: { family?: number; all?: boolean; hints?: number } & Record<
+    string,
+    unknown
+  >,
   callback: (
     err: NodeJS.ErrnoException | null,
     addressOrList: string | LookupAddress[],

@@ -135,7 +135,11 @@ export function extractDocument(
       links: [],
       tables: [],
       sections: [
-        { title: "", content, offsets: [0, content.length] as [number, number] },
+        {
+          title: "",
+          content,
+          offsets: [0, content.length] as [number, number],
+        },
       ],
       fingerprint: fingerprintText(content),
       statusCode,
@@ -273,7 +277,6 @@ function jsonLdDate(
   }
   return undefined;
 }
-
 
 /** Heuristic: does this input look like plain text rather than HTML? */
 function isPlainText(input: string): boolean {

@@ -240,7 +240,8 @@ Status of This Memo
   });
 
   it("fragments with heavy tag density are NOT treated as plain text", () => {
-    const fragment = "<div>lorem</div><div>ipsum</div><div>dolor</div><div>sit</div>";
+    const fragment =
+      "<div>lorem</div><div>ipsum</div><div>dolor</div><div>sit</div>";
     const doc = extractDocument(fragment, "https://example.org/f", 200);
     expect(doc.content.toLowerCase()).toContain("lorem");
   });

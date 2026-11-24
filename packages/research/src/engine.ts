@@ -73,7 +73,12 @@ export class ResearchEngine {
     const steps: ResearchStep[] = [];
     const evidence: Evidence[] = [];
     const gaps: InformationGap[] = [];
-    const contradictionsFound: Array<{ question: string; probeQuery: string; a: string; b: string }> = [];
+    const contradictionsFound: Array<{
+      question: string;
+      probeQuery: string;
+      a: string;
+      b: string;
+    }> = [];
     const seenUrls = new Set<string>();
     const seenFingerprints: string[] = [];
     let contentChars = 0;

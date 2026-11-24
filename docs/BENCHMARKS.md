@@ -53,13 +53,13 @@ uninformative.
 
 **Measured (2026-11-24):**
 
-| Metric | Value |
-| --- | --- |
-| Corpus ingestion | 7/7 sources, live-fetched |
-| MRR (judged) | 1.000 |
-| Recall@5 (judged) | 100% |
+| Metric                          | Value                            |
+| ------------------------------- | -------------------------------- |
+| Corpus ingestion                | 7/7 sources, live-fetched        |
+| MRR (judged)                    | 1.000                            |
+| Recall@5 (judged)               | 100%                             |
 | False positives on miss queries | 1/19 (after gating; 3/19 before) |
-| Query latency p50 / p95 / p99 | 0.01ms / 0.13ms / 0.38ms |
+| Query latency p50 / p95 / p99   | 0.01ms / 0.13ms / 0.38ms         |
 
 The relevance gates (BM25 floor + 1/3 query-coverage) were derived from
 this evaluation: lone common-word coincidences ('error', 'global')

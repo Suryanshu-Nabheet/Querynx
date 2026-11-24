@@ -58,9 +58,7 @@ afterAll(async () => {
 async function listen(server: Server): Promise<string> {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as { port: number }).port;
-  closeAll.push(
-    () => new Promise<void>((r) => server.close(() => r())),
-  );
+  closeAll.push(() => new Promise<void>((r) => server.close(() => r())));
   return `http://127.0.0.1:${port}`;
 }
 
@@ -164,7 +162,10 @@ describe("BraveProvider wire contract", () => {
     });
     const base = await listen(server);
 
-    const provider = new BraveProvider({ apiKey: "brave-key-1", baseUrl: base });
+    const provider = new BraveProvider({
+      apiKey: "brave-key-1",
+      baseUrl: base,
+    });
     const results = await provider.search({
       query: "brave wire test",
       maxResults: 5,
@@ -197,9 +198,9 @@ describe("BraveProvider wire contract", () => {
     });
     const base = await listen(server);
     const provider = new BraveProvider({ apiKey: "k", baseUrl: base });
-    await expect(provider.search({ query: "x", maxResults: 5 })).rejects.toThrow(
-      /rate limit/i,
-    );
+    await expect(
+      provider.search({ query: "x", maxResults: 5 }),
+    ).rejects.toThrow(/rate limit/i);
   });
 });
 
@@ -256,7 +257,9 @@ describe("TavilyProvider wire contract", () => {
     });
     const base = await listen(server);
     const provider = new TavilyProvider({ apiKey: "k", baseUrl: base });
-    await expect(provider.search({ query: "x", maxResults: 5 })).rejects.toThrow();
+    await expect(
+      provider.search({ query: "x", maxResults: 5 }),
+    ).rejects.toThrow();
   });
 });
 
@@ -264,9 +267,9 @@ describe("Provider isConfigured gate", () => {
   it("refuses to run without credentials", () => {
     expect(new BraveProvider({ apiKey: "" }).isConfigured()).toBe(false);
     expect(new TavilyProvider({ apiKey: "" }).isConfigured()).toBe(false);
-    expect(
-      new SearxngProvider({ baseUrl: "not a url" }).isConfigured(),
-    ).toBe(false);
+    expect(new SearxngProvider({ baseUrl: "not a url" }).isConfigured()).toBe(
+      false,
+    );
     expect(
       new SearxngProvider({ baseUrl: "http://x:8080" }).isConfigured(),
     ).toBe(true);

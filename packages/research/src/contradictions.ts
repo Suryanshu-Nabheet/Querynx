@@ -31,7 +31,9 @@ function years(text: string): Set<string> {
 /** Extract large standalone quantities (percentages, counts). */
 function quantities(text: string): Set<string> {
   const found = new Set<string>();
-  for (const match of text.matchAll(/\b\d[\d,.]*\s*(?:%|percent|million|billion|users|downloads)\b/gi)) {
+  for (const match of text.matchAll(
+    /\b\d[\d,.]*\s*(?:%|percent|million|billion|users|downloads)\b/gi,
+  )) {
     found.add(match[0].toLowerCase().replace(/\s+/g, " "));
   }
   return found;
@@ -62,7 +64,9 @@ export function detectContradictions(
       const a = urls[i]!;
       const b = urls[j]!;
       if (yearAssertions.get(a) !== yearAssertions.get(b)) {
-        const key = [yearAssertions.get(a), yearAssertions.get(b)].sort().join("|");
+        const key = [yearAssertions.get(a), yearAssertions.get(b)]
+          .sort()
+          .join("|");
         if (seenPairs.has(key)) continue;
         seenPairs.add(key);
         conflicts.push({

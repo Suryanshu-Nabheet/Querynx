@@ -126,10 +126,8 @@ describe("validatingLookup callback contract", () => {
       err: Error | null;
       list?: Array<{ address: string; family: number }>;
     }>((resolve) => {
-      validatingLookup(
-        "example.com",
-        { all: true, hints: 1024 },
-        (err, list) => resolve({ err: err ?? null, list: list as never }),
+      validatingLookup("example.com", { all: true, hints: 1024 }, (err, list) =>
+        resolve({ err: err ?? null, list: list as never }),
       );
     });
     // Real DNS: example.com must resolve to public addresses here.
@@ -154,7 +152,8 @@ describe("validatingLookup callback contract", () => {
         resolve({ err: err ?? null, address }),
       );
     });
-    if (typeof result.address !== "string") throw new Error("expected single-form");
+    if (typeof result.address !== "string")
+      throw new Error("expected single-form");
     if (result.err === null) {
       expect(isPublicIp(result.address)).toBe(true);
     }
@@ -181,7 +180,9 @@ describe("hostname fetch regression (the all-form bug)", () => {
     // undefined" on every real-network fetch before the contract fix.
     // example.com is IANA-reserved documentation domain — safe target.
     try {
-      const result = await fetchUrl("https://example.com/", { timeoutMs: 15_000 });
+      const result = await fetchUrl("https://example.com/", {
+        timeoutMs: 15_000,
+      });
       expect(result.statusCode).toBe(200);
       expect(result.body).toContain("Example Domain");
     } catch (err) {

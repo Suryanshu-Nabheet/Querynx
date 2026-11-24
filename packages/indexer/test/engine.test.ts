@@ -213,11 +213,15 @@ describe("relevance gating (live-eval regressions)", () => {
     engine.index({
       url: "https://docs.example/http-errors",
       title: "HTTP Error Semantics",
-      content: "error handling in status codes covers error conditions and retries",
+      content:
+        "error handling in status codes covers error conditions and retries",
       collection: "g",
       fingerprint: "g1",
     });
-    const hits = engine.search({ query: "quantum computing error correction", limit: 5 });
+    const hits = engine.search({
+      query: "quantum computing error correction",
+      limit: 5,
+    });
     expect(hits).toHaveLength(0);
   });
 
