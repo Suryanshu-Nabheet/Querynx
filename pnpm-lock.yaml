@@ -181,6 +181,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@querynx/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@querynx/cache':
         specifier: workspace:*
         version: link:../../packages/cache

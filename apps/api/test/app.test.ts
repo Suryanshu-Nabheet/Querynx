@@ -583,3 +583,36 @@ describe('Jobs API', () => {
     expect(Array.isArray(body.deadLetters)).toBe(true);
   });
 });
+
+describe('GET /v1/usage', () => {
+  it('reports non-persistent zero usage without DATABASE_URL', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/usage',
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.persistent).toBe(false);
+    expect(body.usage.totalRequests).toBe(0);
+  });
+});
+
+describe('DB-backed key auth', () => {
+  it('env keys still authorize when no dbKeyHashes loaded', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/search',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { query: 'auth check' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('non-v1 routes stay open (health family)', async () => {
+    const health = await app.inject({ method: 'GET', url: '/health' });
+    const ready = await app.inject({ method: 'GET', url: '/ready' });
+    expect(health.statusCode).toBe(200);
+    expect(ready.statusCode).toBe(200);
+  });
+});

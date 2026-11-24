@@ -22,6 +22,7 @@ import {
   type RetrievalHit,
 } from '@querynx/indexer';
 import { connectStores } from '@querynx/database';
+import { hashApiKey } from '@querynx/auth';
 import {
   ResearchEngine,
   MODE_BUDGETS,
@@ -119,6 +120,27 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   // --- Auth ---------------------------------------------------------------
+  // DB-backed key store: when DATABASE_URL is configured, hashed keys
+  // from Postgres authorize alongside env keys (env keys stay for
+  // break-glass access). Usage events persist for /v1/usage summaries.
+  const apiKeyStore = config.databaseUrl
+    ? connectStores(config.databaseUrl).apiKeyStore
+    : undefined;
+  const usageStore = config.databaseUrl
+    ? connectStores(config.databaseUrl).usageStore
+    : undefined;
+  let dbKeyHashes: ReadonlySet<string> | null = null;
+  if (apiKeyStore) {
+    void apiKeyStore
+      .load()
+      .then((records) => {
+        dbKeyHashes = new Set(records.filter((r) => !r.revoked).map((r) => r.hash));
+      })
+      .catch((err) => {
+        console.warn(`[auth] key store load failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+  }
+
   app.addHook('onRequest', async (request) => {
     // Health endpoints are always public.
     const url = request.raw.url ?? '/';
@@ -127,15 +149,21 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     const key =
       (request.headers['x-api-key'] as string | undefined) ??
       extractBearer(request.headers['authorization']);
-    const valid = key !== undefined && config.apiKeys.includes(key);
-    const isProtected = url.startsWith('/v1');
+    const envValid = key !== undefined && config.apiKeys.includes(key);
+    const dbValid =
+      key !== undefined && dbKeyHashes !== null && dbKeyHashes.has(hashApiKey(key));
+    const valid = envValid || dbValid;
 
-    if (isProtected && config.apiKeys.length > 0 && !valid) {
+    // /v1 routes enforce keys here. /search (Tavily-compat) may carry
+    // the key in its JSON body per the Tavily contract, so its handler
+    // performs the check — don't reject before the body is parsed.
+    const isHeaderProtected = url.startsWith('/v1');
+    if (isHeaderProtected && (config.apiKeys.length > 0 || dbKeyHashes !== null) && !valid) {
       throw new UnauthorizedError('Missing or invalid API key');
     }
     // When no API keys are configured the API is open (local dev mode).
     // Rate limiting still applies.
-    const rateKey = valid ? `key:${key}` : `ip:${request.ip}`;
+    const rateKey = valid && key ? `key:${hashApiKey(key)}` : `ip:${request.ip}`;
     if (!rateLimiter.tryConsume(rateKey)) {
       const retryAfter = Math.ceil(rateLimiter.msUntilAvailable(rateKey) / 1000);
       const err = new UnauthorizedError('Rate limit exceeded');
@@ -143,6 +171,25 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       request.headers['retry-after'] = String(retryAfter);
       throw Object.assign(err, { httpStatus: 429, code: 'RATE_LIMITED' } as const);
     }
+  });
+
+  // Usage accounting (best-effort; failures never fail requests).
+  app.addHook('onResponse', async (request, reply) => {
+    if (!usageStore) return;
+    const url = request.raw.url ?? '/';
+    if (url === '/health' || url === '/ready' || url === '/metrics') return;
+    if (!url.startsWith('/v1') && url !== '/search') return;
+    const key = (request.headers['x-api-key'] as string | undefined) ?? null;
+    usageStore
+      .record({
+        apiKeyHash: key ? hashApiKey(key) : null,
+        route: url.split('?')[0]!,
+        statusCode: reply.statusCode,
+        durationMs: Math.max(0, Math.round(reply.elapsedTime ?? 0)),
+      })
+      .catch(() => {
+        // Usage accounting is observability, not correctness.
+      });
   });
 
   // --- Error normalization --------------------------------------------------
@@ -727,6 +774,36 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     console.warn(`[persistence] rehydrate failed: ${err instanceof Error ? err.message : String(err)}`);
   });
   const indexEngine = persistentIndex.engine;
+
+  // --- v1/usage: request accounting (Postgres-backed) ---------------------------
+  app.get('/v1/usage', async (request) => {
+    if (!usageStore) {
+      return {
+        usage: {
+          totalRequests: 0,
+          byRoute: {} as Record<string, number>,
+          p95DurationMs: 0,
+        },
+        persistent: false,
+        requestId: request.id,
+      };
+    }
+    try {
+      const summary = await usageStore.summary(24);
+      return { usage: summary, persistent: true, requestId: request.id };
+    } catch (err) {
+      return {
+        usage: {
+          totalRequests: 0,
+          byRoute: {} as Record<string, number>,
+          p95DurationMs: 0,
+        },
+        persistent: true,
+        error: err instanceof Error ? err.message : 'usage query failed',
+        requestId: request.id,
+      };
+    }
+  });
 
   // --- v1/jobs: async job submission over the queue ------------------------------
   // The in-process queue powers crawl/index/research as durable async
