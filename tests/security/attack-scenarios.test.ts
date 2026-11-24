@@ -102,13 +102,16 @@ describe('attack: resource exhaustion', () => {
   });
 
   it('extractor caps pathological documents', () => {
+    // A 20k-paragraph payload is deliberately heavy; on slow CI runners
+    // parsing alone can take seconds. The assertion is about the cap,
+    // not speed — allow the realistic budget.
     const hostile = `<html><body>${'<p>filler content for size attack </p>'.repeat(20_000)}</body></html>`;
     const doc = extractDocument(hostile, 'https://big.example/x', 200, {
       maxContentLength: 50_000,
     });
     expect(doc.content.length).toBeLessThanOrEqual(50_000);
     expect(doc.warnings.some((w) => w.includes('truncated'))).toBe(true);
-  });
+  }, 30_000);
 });
 
 describe('attack: untrusted content handling', () => {
