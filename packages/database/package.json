@@ -1,0 +1,29 @@
+{
+  "name": "@querynx/database",
+  "version": "0.1.0",
+  "description": "Drizzle schema, migrations and persistence adapters for Querynx",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@querynx/types": "workspace:*",
+    "@querynx/shared": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}
