@@ -11,9 +11,11 @@ Last updated: 2026-11-24 (after API milestone)
 | `packages/extractor` | Complete (readability, metadata, chunking) | 13 passing |
 | `packages/providers` | Orchestrator complete; 3 adapters implemented | 12 passing |
 | `packages/cache` | Complete (TTL, LRU, stampede protection) | 11 passing |
-| `apps/api` | `/v1/search`, `/v1/extract`, `/v1/providers`, health/metrics | 13 passing |
+| `packages/crawler` | Complete (robots, frontier, engine, sitemaps) | 21 passing |
+| `packages/indexer` | Complete (BM25 engine, hybrid RRF, vector store) | 24 passing |
+| `apps/api` | search/extract/index/semantic + health/metrics | 17 passing |
 
-104 tests passing across the workspace. Live boot verified: server
+153 tests passing across the workspace. Live boot verified: server
 starts, reports honest provider state, degrades gracefully when the
 configured SearXNG instance is unreachable.
 
@@ -28,10 +30,10 @@ configured SearXNG instance is unreachable.
 
 ## Next tasks (priority order)
 
-1. `packages/crawler` — robots.txt parsing/caching, frontier, per-domain
-   throttling, resumable state.
-2. `packages/database` — Drizzle schema + migrations (documents, jobs,
-   api keys, usage).
-3. Batch search + SSE streaming endpoints.
-4. `packages/indexer` — BM25 + vector hybrid retrieval.
+1. Autonomous research engine — bounded iterative retrieve-rank-synthesize
+   loop with budgets, cancellation and evidence tracking.
+2. Batch search (`/v1/search/batch`) + SSE streaming of partial results.
+3. `packages/database` — Drizzle schema + Postgres persistence for the
+   in-memory engines (documents, jobs, api keys, usage).
+4. Ranking evaluation harness (MRR/NDCG/Recall@K) with fixture datasets.
 
