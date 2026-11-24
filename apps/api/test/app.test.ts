@@ -324,3 +324,56 @@ describe('POST /v1/research', () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe('POST /search (Tavily-compatible)', () => {
+  it('accepts Tavily-shaped requests with body api_key', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/search',
+      payload: {
+        api_key: 'test-key-123',
+        query: 'tavily compat',
+        max_results: 3,
+        include_answer: true,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.query).toBe('tavily compat');
+    expect(body.results[0]).toHaveProperty('content');
+    expect(body.results[0]).toHaveProperty('score');
+    expect(body.answer).toBeTruthy();
+    expect(typeof body.response_time).toBe('number');
+  });
+
+  it('rejects bad keys with the Tavily error envelope', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/search',
+      payload: { api_key: 'wrong', query: 'x' },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().detail).toContain('API key');
+  });
+
+  it('supports the Authorization header like Tavily clients', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/search',
+      headers: { authorization: 'Bearer test-key-123' },
+      payload: { query: 'header auth' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().results.length).toBeGreaterThan(0);
+  });
+
+  it('maps topic and time_range filters', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/search',
+      headers: { 'x-api-key': 'test-key-123' },
+      payload: { query: 'news query', topic: 'news', time_range: 'week' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});

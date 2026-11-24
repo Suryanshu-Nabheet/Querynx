@@ -1,0 +1,36 @@
+{
+  "name": "@querynx/worker",
+  "version": "0.1.0",
+  "description": "Querynx background worker: crawl, index and research jobs",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@querynx/config": "workspace:*",
+    "@querynx/queue": "workspace:*",
+    "@querynx/scheduler": "workspace:*",
+    "@querynx/crawler": "workspace:*",
+    "@querynx/retrieval": "workspace:*",
+    "@querynx/embeddings": "workspace:*",
+    "@querynx/research": "workspace:*",
+    "@querynx/providers": "workspace:*",
+    "@querynx/fetcher": "workspace:*",
+    "@querynx/extractor": "workspace:*",
+    "@querynx/observability": "workspace:*",
+    "@querynx/types": "workspace:*",
+    "@querynx/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

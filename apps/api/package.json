@@ -20,6 +20,7 @@
     "@querynx/providers": "workspace:*",
     "@querynx/research": "workspace:*",
     "@querynx/shared": "workspace:*",
+    "@querynx/tavily-compat": "workspace:*",
     "@querynx/types": "workspace:*",
     "fastify": "^5.2.1"
   },

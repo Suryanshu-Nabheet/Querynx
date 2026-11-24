@@ -26,6 +26,7 @@ import {
   MODE_BUDGETS,
   type ResearchEvent,
 } from '@querynx/research';
+import { executeTavilySearch } from '@querynx/tavily-compat';
 import {
   TokenBucketRateLimiter,
   toSafeError,
@@ -337,6 +338,75 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       );
 
       return { results, generatedAt: new Date().toISOString(), requestId: request.id };
+    }
+  );
+
+  // --- Tavily-compatible surface: POST /search (drop-in) ------------------------
+  app.post(
+    '/search',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: true,
+          required: ['query'],
+          properties: {
+            api_key: { type: 'string' },
+            query: { type: 'string', minLength: 1, maxLength: 400 },
+            search_depth: { type: 'string', enum: ['basic', 'advanced'] },
+            topic: { type: 'string', enum: ['general', 'news'] },
+            max_results: { type: 'integer', minimum: 1, maximum: 20 },
+            include_answer: { type: 'boolean' },
+            include_raw_content: { type: 'boolean' },
+            include_domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
+            exclude_domains: { type: 'array', items: { type: 'string' }, maxItems: 20 },
+            time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      // Tavily clients send the key in the body OR the Authorization
+      // header. Enforce the same auth policy as the native API.
+      const body = request.body as {
+        api_key?: string;
+        query: string;
+        search_depth?: 'basic' | 'advanced';
+        topic?: 'general' | 'news';
+        max_results?: number;
+        include_answer?: boolean;
+        include_raw_content?: boolean;
+        include_domains?: string[];
+        exclude_domains?: string[];
+        time_range?: 'day' | 'week' | 'month' | 'year';
+      };
+
+      if (config.apiKeys.length > 0) {
+        const headerKey =
+          (request.headers['x-api-key'] as string | undefined) ??
+          (request.headers['authorization'] as string | undefined)?.replace(/^Bearer\s+/i, '');
+        const key = body.api_key ?? headerKey;
+        if (!key || !config.apiKeys.includes(key)) {
+          reply.code(401).send({
+            detail: 'Invalid or missing API key. ' +
+              'Pass it as "api_key" in the body or as the Authorization header.',
+          });
+          return reply;
+        }
+      }
+
+      const started = Date.now();
+      const response = await executeTavilySearch(orchestrator, {
+        query: body.query,
+        search_depth: body.search_depth,
+        topic: body.topic,
+        max_results: body.max_results,
+        include_answer: body.include_answer,
+        include_domains: body.include_domains,
+        exclude_domains: body.exclude_domains,
+        time_range: body.time_range,
+      });
+      return { ...response, response_time: Number(((Date.now() - started) / 1000).toFixed(2)) };
     }
   );
 
