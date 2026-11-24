@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-24 (after end-to-end hardening phase)
+Last updated: 2026-11-24 (after §12/§13 completion — LLM integration + full endpoint surface)
 
 ## Validated and working
 
@@ -53,6 +53,13 @@ Both fixed; suite now guards against regression.
 
 ## Recently closed
 
+- §12 AI integration: @querynx/llm — OpenAI-compatible client with task
+  routing, cross-provider fallback, usage accounting, and
+  prompt-injection-resistant web-grounded completions; fetcher gained
+  POST support for platform calls.
+- §13 endpoint completion: /v1/answer (grounded Q&A with citations),
+  /v1/rerank, /v1/extract/batch, /v1/crawl, /v1/map and
+  GET /v1/jobs/:id/stream — OpenAPI at 20 documented operations.
 - Jobs API over the durable queue (submit/poll/cancel, dead letters).
 - Playwright browser rendering: isolated Chromium with in-context
   private-network blocking (operator opt-in via QUERYNX_BROWSER_PATH).
