@@ -846,6 +846,9 @@ importers:
 
   tests:
     dependencies:
+      '@querynx/api':
+        specifier: workspace:*
+        version: link:../apps/api
       '@querynx/auth':
         specifier: workspace:*
         version: link:../packages/auth
@@ -855,6 +858,9 @@ importers:
       '@querynx/fetcher':
         specifier: workspace:*
         version: link:../packages/fetcher
+      '@querynx/providers':
+        specifier: workspace:*
+        version: link:../packages/providers
       '@querynx/security':
         specifier: workspace:*
         version: link:../packages/security

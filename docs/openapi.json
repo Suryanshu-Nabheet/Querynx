@@ -1,0 +1,564 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Querynx API",
+    "version": "0.1.0",
+    "description": "Self-hostable, agent-native web search, extraction, crawling, indexing and research infrastructure. The open web, built for agents.",
+    "license": { "name": "AGPL-3.0-or-later", "url": "https://www.gnu.org/licenses/agpl-3.0.html" }
+  },
+  "servers": [{ "url": "http://127.0.0.1:3001", "description": "Local self-hosted instance" }],
+  "security": [{ "apiKey": [] }],
+  "tags": [
+    { "name": "search" },
+    { "name": "extract" },
+    { "name": "index" },
+    { "name": "research" },
+    { "name": "system" },
+    { "name": "compat" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "requestId": { "type": "string" }
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "required": ["title", "url", "snippet", "score", "provider"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "snippet": { "type": "string" },
+          "content": { "type": "string" },
+          "score": { "type": "number" },
+          "publishedAt": { "type": "string", "format": "date-time" },
+          "provider": { "type": "string" },
+          "metadata": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "SearchDiagnostics": {
+        "type": "object",
+        "properties": {
+          "providersQueried": { "type": "integer" },
+          "providersSucceeded": { "type": "integer" },
+          "cacheHit": { "type": "boolean" },
+          "rawResultCount": { "type": "integer" },
+          "duplicateCount": { "type": "integer" },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": { "type": "string" },
+                "status": { "type": "string", "enum": ["ok", "error", "skipped", "degraded"] },
+                "resultCount": { "type": "integer" },
+                "durationMs": { "type": "integer" },
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": ["results", "query", "generatedAt", "diagnostics"],
+        "properties": {
+          "results": { "type": "array", "items": { "$ref": "#/components/schemas/SearchResult" } },
+          "query": { "type": "string" },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "diagnostics": { "$ref": "#/components/schemas/SearchDiagnostics" },
+          "requestId": { "type": "string" }
+        }
+      },
+      "ExtractRequest": {
+        "type": "object",
+        "required": ["urls"],
+        "properties": {
+          "urls": { "type": "array", "items": { "type": "string", "format": "uri" }, "minItems": 1, "maxItems": 10 },
+          "format": { "type": "string", "enum": ["markdown", "html", "text"] },
+          "includeLinks": { "type": "boolean" },
+          "includeTables": { "type": "boolean" },
+          "includeMetadata": { "type": "boolean" },
+          "maxContentLength": { "type": "integer", "minimum": 1000, "maximum": 500000 },
+          "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 60000 }
+        }
+      },
+      "ExtractedDocument": {
+        "type": "object",
+        "required": ["url", "content", "format", "fingerprint", "statusCode", "fetchedAt"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "format": { "type": "string", "enum": ["markdown", "html", "text"] },
+          "metadata": { "type": "object", "additionalProperties": true },
+          "fingerprint": { "type": "string" },
+          "statusCode": { "type": "integer" },
+          "fetchedAt": { "type": "string", "format": "date-time" },
+          "warnings": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ExtractResponse": {
+        "type": "object",
+        "required": ["results", "generatedAt"],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url", "ok"],
+              "properties": {
+                "url": { "type": "string", "format": "uri" },
+                "ok": { "type": "boolean" },
+                "document": { "$ref": "#/components/schemas/ExtractedDocument" },
+                "error": { "type": "string" }
+              }
+            }
+          },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "requestId": { "type": "string" }
+        }
+      },
+      "ResearchReport": {
+        "type": "object",
+        "required": ["objective", "mode", "findings", "evidence", "gaps", "usage", "termination"],
+        "properties": {
+          "objective": { "type": "string" },
+          "mode": { "type": "string", "enum": ["fast", "standard", "advanced", "deep", "academic", "technical", "documentation"] },
+          "findings": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url", "title", "passage", "relevance"],
+              "properties": {
+                "url": { "type": "string", "format": "uri" },
+                "title": { "type": "string" },
+                "passage": { "type": "string" },
+                "stepQuery": { "type": "string" },
+                "relevance": { "type": "number" },
+                "publishedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": { "type": "string" },
+                "attemptedQueries": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "queries": { "type": "integer" },
+              "pagesFetched": { "type": "integer" },
+              "elapsedMs": { "type": "integer" },
+              "contentChars": { "type": "integer" }
+            }
+          },
+          "termination": { "type": "string", "enum": ["budget-exhausted", "coverage-reached", "no-results", "cancelled"] }
+        }
+      },
+      "ProviderHealth": {
+        "type": "object",
+        "required": ["name", "state", "successRate", "medianLatencyMs", "configured"],
+        "properties": {
+          "name": { "type": "string" },
+          "state": { "type": "string", "enum": ["closed", "open", "half-open"] },
+          "consecutiveFailures": { "type": "integer" },
+          "successRate": { "type": "number" },
+          "medianLatencyMs": { "type": "number" },
+          "configured": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/search": {
+      "post": {
+        "tags": ["search"],
+        "summary": "Federated web search",
+        "description": "Searches across all configured providers concurrently, merges with RRF, deduplicates by canonical URL and content fingerprint.",
+        "operationId": "search",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "additionalProperties": false,
+                "properties": {
+                  "query": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "maxResults": { "type": "integer", "minimum": 1, "maximum": 50 },
+                  "includeDomains": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+                  "excludeDomains": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+                  "language": { "type": "string" },
+                  "region": { "type": "string" },
+                  "freshness": { "type": "string", "enum": ["any", "day", "week", "month", "year"] },
+                  "category": { "type": "string", "enum": ["web", "news", "academic", "code", "docs"] },
+                  "providers": { "type": "array", "items": { "type": "string" }, "maxItems": 10 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResponse" } } }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/v1/search/batch": {
+      "post": {
+        "tags": ["search"],
+        "summary": "Batch search (up to 20 queries)",
+        "operationId": "searchBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["queries"],
+                "additionalProperties": false,
+                "properties": {
+                  "queries": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 20 },
+                  "maxResults": { "type": "integer", "minimum": 1, "maximum": 50 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-query responses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "responses": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          { "$ref": "#/components/schemas/SearchResponse" },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "query": { "type": "string" },
+                              "ok": { "type": "boolean", "const": false },
+                              "error": { "type": "string" }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/semantic": {
+      "post": {
+        "tags": ["index", "search"],
+        "summary": "BM25 search over the local indexed corpus",
+        "operationId": "searchSemantic",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "additionalProperties": false,
+                "properties": {
+                  "query": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "collection": { "type": "string" },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                  "domains": { "type": "array", "items": { "type": "string" } },
+                  "publishedAfter": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Corpus hits with matched terms" }
+        }
+      }
+    },
+    "/v1/search/stream": {
+      "post": {
+        "tags": ["search"],
+        "summary": "SSE streaming search",
+        "description": "Server-Sent Events: start, partial (per-provider), results, done. Client disconnect aborts in-flight provider work.",
+        "operationId": "searchStream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["query"], "properties": { "query": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE event stream",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/v1/extract": {
+      "post": {
+        "tags": ["extract"],
+        "summary": "Extract clean content from URLs",
+        "operationId": "extract",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ExtractRequest" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "Extracted documents", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExtractResponse" } } } },
+          "400": { "description": "Blocked or invalid URLs (SSRF protection)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/v1/index": {
+      "post": {
+        "tags": ["index"],
+        "summary": "Ingest into the local corpus (URL fetch or inline content)",
+        "operationId": "indexDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["collection"],
+                "additionalProperties": false,
+                "properties": {
+                  "collection": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "url": { "type": "string", "format": "uri" },
+                  "content": { "type": "string", "maxLength": 500000 },
+                  "title": { "type": "string", "maxLength": 500 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Indexed document and corpus stats" }
+        }
+      }
+    },
+    "/v1/index/stats": {
+      "get": {
+        "tags": ["index"],
+        "summary": "Corpus statistics",
+        "operationId": "indexStats",
+        "responses": { "200": { "description": "Document/collection/term counts" } }
+      }
+    },
+    "/v1/research": {
+      "post": {
+        "tags": ["research"],
+        "summary": "Run a bounded research job",
+        "description": "Iterative retrieve-extract-rank-synthesize with hard budgets (queries, pages, time, chars), evidence provenance, gap detection and honest termination reasons.",
+        "operationId": "research",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["objective"],
+                "additionalProperties": false,
+                "properties": {
+                  "objective": { "type": "string", "minLength": 3, "maxLength": 1000 },
+                  "mode": { "type": "string", "enum": ["fast", "standard", "advanced", "deep", "academic", "technical", "documentation"] },
+                  "maxQueries": { "type": "integer", "minimum": 1, "maximum": 20 },
+                  "maxPages": { "type": "integer", "minimum": 1, "maximum": 50 },
+                  "timeMs": { "type": "integer", "minimum": 1000, "maximum": 600000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Research report with evidence and events",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResearchReport" } } }
+          }
+        }
+      }
+    },
+    "/v1/research/stream": {
+      "post": {
+        "tags": ["research"],
+        "summary": "SSE streaming research",
+        "description": "Streams query-started, query-completed, page-extracted, gap-detected events, ending with a completed event carrying the full report.",
+        "operationId": "researchStream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["objective"],
+                "properties": { "objective": { "type": "string" }, "mode": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "SSE event stream", "content": { "text/event-stream": { "schema": { "type": "string" } } } }
+        }
+      }
+    },
+    "/v1/providers": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Search provider health",
+        "operationId": "providers",
+        "responses": {
+          "200": {
+            "description": "Per-provider health with circuit-breaker state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providers": { "type": "array", "items": { "$ref": "#/components/schemas/ProviderHealth" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "tags": ["compat"],
+        "summary": "Tavily-compatible search (drop-in)",
+        "description": "Accepts Tavily's request shape (api_key in body or Authorization header, query, search_depth, topic, max_results, include_answer, time_range) and returns Tavily's response envelope. Point Tavily clients at this instance by changing the base URL.",
+        "operationId": "tavilySearch",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                  "api_key": { "type": "string" },
+                  "query": { "type": "string" },
+                  "search_depth": { "type": "string", "enum": ["basic", "advanced"] },
+                  "topic": { "type": "string", "enum": ["general", "news"] },
+                  "max_results": { "type": "integer", "minimum": 1, "maximum": 20 },
+                  "include_answer": { "type": "boolean" },
+                  "include_domains": { "type": "array", "items": { "type": "string" } },
+                  "exclude_domains": { "type": "array", "items": { "type": "string" } },
+                  "time_range": { "type": "string", "enum": ["day", "week", "month", "year"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tavily-shaped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "query": { "type": "string" },
+                    "answer": { "type": "string" },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": { "type": "string" },
+                          "url": { "type": "string" },
+                          "content": { "type": "string" },
+                          "score": { "type": "number" },
+                          "published_date": { "type": "string" }
+                        }
+                      }
+                    },
+                    "response_time": { "type": "number" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid key (Tavily envelope: {detail})" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Liveness probe",
+        "security": [],
+        "operationId": "health",
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Readiness with provider and cache state",
+        "security": [],
+        "operationId": "ready",
+        "responses": { "200": { "description": "ready or degraded with details" } }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Prometheus metrics",
+        "security": [],
+        "operationId": "metrics",
+        "responses": { "200": { "description": "Prometheus text format", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+      }
+    }
+  }
+}

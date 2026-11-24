@@ -16,7 +16,9 @@
     "@querynx/security": "workspace:*",
     "@querynx/auth": "workspace:*",
     "@querynx/shared": "workspace:*",
-    "undici": "^7.2.0"
+    "undici": "^7.2.0",
+    "@querynx/providers": "workspace:*",
+    "@querynx/api": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
