@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@querynx/cache": "workspace:*",
+    "@querynx/database": "workspace:*",
     "@querynx/extractor": "workspace:*",
     "@querynx/fetcher": "workspace:*",
     "@querynx/indexer": "workspace:*",
+    "@querynx/observability": "workspace:*",
     "@querynx/providers": "workspace:*",
     "@querynx/research": "workspace:*",
     "@querynx/shared": "workspace:*",

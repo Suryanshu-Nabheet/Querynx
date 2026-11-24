@@ -377,3 +377,98 @@ describe('POST /search (Tavily-compatible)', () => {
     expect(res.statusCode).toBe(200);
   });
 });
+
+describe('Persistence layer', () => {
+  it('reports persistent=false without DATABASE_URL', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/index/stats',
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().persistent).toBe(false);
+  });
+
+  it('accepts injected PersistentIndex with a fake store', async () => {
+    const { buildApp } = await import('../src/app.js');
+    const { PersistentIndex } = await import('../src/persistence.js');
+    const { MemorySearchEngine } = await import('@querynx/indexer');
+
+    const upserts: string[] = [];
+    const fakeStore = {
+      upsert: async (doc: { url: string }) => { upserts.push(doc.url); },
+      scan: async () => [],
+      stats: async () => ({ documents: 0, collections: 0, contentChars: 0 }),
+      findByUrl: async () => null,
+      fullTextSearch: async () => [],
+      replaceChunks: async () => {},
+    };
+
+    const engine = new PersistentIndex({
+      memoryEngine: new MemorySearchEngine(),
+      documentStore: fakeStore as never,
+    });
+    const testApp = buildApp({
+      config: loadConfig({ QUERYNX_API_KEYS: 'p-key' }),
+      indexEngine: engine,
+    });
+
+    const ingest = await testApp.inject({
+      method: 'POST',
+      url: '/v1/index',
+      headers: { 'x-api-key': 'p-key' },
+      payload: {
+        collection: 'persist-test',
+        title: 'Persisted doc',
+        content: 'content that should reach the store',
+      },
+    });
+    expect(ingest.statusCode).toBe(200);
+    expect(upserts.length).toBe(1);
+    expect(upserts[0]).toContain('inline://');
+
+    const stats = await testApp.inject({
+      method: 'GET',
+      url: '/v1/index/stats',
+      headers: { 'x-api-key': 'p-key' },
+    });
+    expect(stats.json().persistent).toBe(true);
+    await testApp.close();
+  });
+
+  it('continues serving when store upserts fail', async () => {
+    const { buildApp } = await import('../src/app.js');
+    const { PersistentIndex } = await import('../src/persistence.js');
+    const { MemorySearchEngine } = await import('@querynx/indexer');
+
+    const failingStore = {
+      upsert: async () => { throw new Error('db down'); },
+      scan: async () => [],
+    };
+    const engine = new PersistentIndex({
+      memoryEngine: new MemorySearchEngine(),
+      documentStore: failingStore as never,
+    });
+    const testApp = buildApp({
+      config: loadConfig({ QUERYNX_API_KEYS: 'p-key' }),
+      indexEngine: engine,
+    });
+
+    const res = await testApp.inject({
+      method: 'POST',
+      url: '/v1/index',
+      headers: { 'x-api-key': 'p-key' },
+      payload: { collection: 'x', title: 'T', content: 'searchable content about databases' },
+    });
+    // The request must succeed from memory despite the DB failure.
+    expect(res.statusCode).toBe(200);
+    const search = await testApp.inject({
+      method: 'POST',
+      url: '/v1/search/semantic',
+      headers: { 'x-api-key': 'p-key' },
+      payload: { query: 'searchable databases' },
+    });
+    expect(search.json().results.length).toBeGreaterThan(0);
+    await testApp.close();
+  });
+});

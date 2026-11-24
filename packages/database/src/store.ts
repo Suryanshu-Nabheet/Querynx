@@ -116,6 +116,20 @@ export class DocumentStore {
     return row ? rowToRecord(row) : null;
   }
 
+  /** Cursor-based full-corpus scan (boot rehydration, exports). */
+  async scan(options: { limit?: number; afterId?: string } = {}): Promise<DocumentRecord[]> {
+    const limit = options.limit ?? 500;
+    const rows = options.afterId
+      ? await this.query<Array<DocumentRow>>`
+          SELECT * FROM documents WHERE id > ${options.afterId}::uuid
+          ORDER BY id ASC LIMIT ${limit}
+        `
+      : await this.query<Array<DocumentRow>>`
+          SELECT * FROM documents ORDER BY id ASC LIMIT ${limit}
+        `;
+    return rows.map(rowToRecord);
+  }
+
   async delete(id: string): Promise<boolean> {
     const res = await this.db.delete(documents).where(eq(documents.id, id)).returning();
     return res.length > 0;

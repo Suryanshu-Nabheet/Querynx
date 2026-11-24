@@ -25,6 +25,8 @@ export interface ApiConfig {
   anonymousRateLimitPerMinute: number;
   /** Master API keys with full access (comma-separated env). */
   apiKeys: string[];
+  /** Postgres connection string; enables durable persistence. */
+  databaseUrl?: string;
   /** Request logging. */
   logLevel: 'error' | 'warn' | 'info' | 'debug';
 }
@@ -76,6 +78,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     providerConcurrency: num(env['PROVIDER_CONCURRENCY'], 4),
     anonymousRateLimitPerMinute: num(env['ANONYMOUS_RATE_LIMIT_PER_MIN'], 30),
     apiKeys: csv(env['QUERYNX_API_KEYS']),
+    databaseUrl: env['DATABASE_URL'],
     logLevel: ['error', 'warn', 'info', 'debug'].includes(level) ? level : 'info',
   };
 }

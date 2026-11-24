@@ -21,6 +21,7 @@ import {
   fromExtractedDocument,
   type RetrievalHit,
 } from '@querynx/indexer';
+import { connectStores } from '@querynx/database';
 import {
   ResearchEngine,
   MODE_BUDGETS,
@@ -37,14 +38,15 @@ import {
 } from '@querynx/shared';
 import type { SearchQuery, SearchResponse } from '@querynx/types';
 import type { ApiConfig } from './config.js';
+import { PersistentIndex } from './persistence.js';
 import { randomUUID } from 'node:crypto';
 
 export interface AppDeps {
   config: ApiConfig;
   /** Allows tests to inject a custom orchestrator. */
   orchestrator?: SearchOrchestrator;
-  /** Allows tests to inject a preloaded index engine. */
-  indexEngine?: MemorySearchEngine;
+  /** Allows tests to inject a preloaded index (memory or persistent). */
+  indexEngine?: PersistentIndex;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -708,7 +710,19 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   );
 
   // --- Native index: ingest and search the local corpus -----------------------
-  const indexEngine = deps.indexEngine ?? new MemorySearchEngine();
+  // Postgres durability when DATABASE_URL is configured; memory otherwise.
+  const persistentIndex = deps.indexEngine ?? new PersistentIndex({
+    memoryEngine: new MemorySearchEngine(),
+    ...(config.databaseUrl
+      ? { documentStore: connectStores(config.databaseUrl).documentStore }
+      : {}),
+  });
+  // Boot rehydration is fire-and-forget on purpose: the API serves
+  // immediately while the corpus warms into memory.
+  void persistentIndex.rehydrate().catch((err) => {
+    console.warn(`[persistence] rehydrate failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
+  const indexEngine = persistentIndex.engine;
 
   /**
    * POST /v1/index — fetch a URL (or accept inline content), extract and
@@ -754,27 +768,28 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           throw new ValidationError(`Fetch returned HTTP ${fetched.statusCode}`);
         }
         const document = extractDocument(fetched.body, fetched.url, fetched.statusCode);
-        const indexed = indexEngine.index({
+        const indexed = await persistentIndex.index({
           ...fromExtractedDocument(document, body.collection),
         });
-        return { document: indexed, stats: indexEngine.stats(), requestId: request.id };
+        return { document: indexed, stats: persistentIndex.stats(), requestId: request.id };
       }
 
       // Inline content path: no fetch, direct ingest.
-      const indexed = indexEngine.index({
+      const indexed = await persistentIndex.index({
         url: body.url ?? `inline://${request.id}`,
         title: body.title ?? 'Untitled',
         content: body.content!,
         collection: body.collection,
         fingerprint: `inline-${request.id}`,
       });
-      return { document: indexed, stats: indexEngine.stats(), requestId: request.id };
+      return { document: indexed, stats: persistentIndex.stats(), requestId: request.id };
     }
   );
 
   /** GET /v1/index/stats — corpus statistics. */
   app.get('/v1/index/stats', async (request) => ({
-    stats: indexEngine.stats(),
+    stats: persistentIndex.stats(),
+    persistent: persistentIndex.persistent,
     requestId: request.id,
   }));
 
