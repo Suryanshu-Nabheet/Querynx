@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ConnectionBar from '../../components/ConnectionBar';
-import { apiPost, type ResearchReportView } from '../../lib/api';
+import { getStoredConnection, DashboardApiError } from '../../lib/api';
 
 interface ReportView {
   findings: string;
@@ -12,44 +12,99 @@ interface ReportView {
   termination: string;
 }
 
+type StreamEvent =
+  | { type: 'start'; requestId?: string; objective?: string }
+  | { type: 'query-started'; query: string; reason: string }
+  | { type: 'query-completed'; query: string; resultCount: number; durationMs: number }
+  | { type: 'page-extracted'; url: string; title: string; contentChars: number }
+  | { type: 'gap-detected'; question: string }
+  | { type: 'completed'; report: ReportView }
+  | { type: 'error'; message: string };
+
 const MODES = ['fast', 'standard', 'advanced', 'deep', 'academic', 'technical', 'documentation'] as const;
 
 export default function ResearchPage() {
   const [objective, setObjective] = useState('');
   const [mode, setMode] = useState<string>('standard');
+  const [events, setEvents] = useState<StreamEvent[]>([]);
   const [report, setReport] = useState<ReportView | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const run = async () => {
     if (objective.trim().length < 3) return;
-    setLoading(true);
+    setRunning(true);
     setError('');
+    setEvents([]);
     setReport(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const { report: r } = await apiPost<ResearchReportView>('/v1/research', {
-        objective,
-        mode,
+      const { url, apiKey } = getStoredConnection();
+      const response = await fetch(`${url}/v1/research/stream`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(apiKey ? { 'x-api-key': apiKey } : {}),
+        },
+        body: JSON.stringify({ objective, mode }),
+        signal: controller.signal,
       });
-      setReport({
-        findings: r.findings,
-        evidence: r.evidence.map((e) => ({
-          url: e.url, title: e.title, passage: e.passage, relevance: e.relevance,
-        })),
-        gaps: r.gaps.map((g) => ({ question: g.question })),
-        usage: r.usage,
-        termination: r.termination,
-      });
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse complete SSE frames.
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+        for (const frame of frames) {
+          const eventLine = frame.split('\n').find((l) => l.startsWith('event: '));
+          const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
+          if (!eventLine || !dataLine) continue;
+          const type = eventLine.slice('event: '.length);
+          const data = JSON.parse(dataLine.slice('data: '.length)) as Record<string, unknown>;
+          const event = { type, ...data } as StreamEvent;
+          setEvents((prev) => [...prev, event]);
+          if (type === 'completed') {
+            setReport((event as { report: ReportView }).report);
+          }
+          if (type === 'error') {
+            setError((event as { message: string }).message);
+          }
+        }
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'research failed');
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof DashboardApiError ? err.message : 'research failed');
+      }
     }
-    setLoading(false);
+    setRunning(false);
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+    setRunning(false);
   };
 
   return (
     <div>
       <h1>Research playground</h1>
-      <p className="sub">Bounded autonomous research with budgets, evidence tracking and gap detection</p>
+      <p className="sub">
+        Bounded autonomous research — live progress streams over SSE as queries
+        execute and pages extract.
+      </p>
       <ConnectionBar />
 
       <div className="panel">
@@ -64,19 +119,65 @@ export default function ResearchPage() {
           <select value={mode} onChange={(e) => setMode(e.target.value)} style={{ width: 180 }} aria-label="Mode">
             {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
-          <button onClick={() => void run()} disabled={loading || objective.trim().length < 3}>
-            {loading ? 'Researching…' : 'Run research'}
-          </button>
+          {running ? (
+            <button className="secondary" onClick={stop}>Stop</button>
+          ) : (
+            <button onClick={() => void run()} disabled={objective.trim().length < 3}>
+              Run research
+            </button>
+          )}
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
 
+      {events.length > 0 && (
+        <>
+          <h2>Live progress</h2>
+          <div className="panel">
+            {events.map((event, i) => {
+              switch (event.type) {
+                case 'query-started':
+                  return (
+                    <div className="result" key={i}>
+                      <span className="badge warn">{event.reason}</span>{' '}
+                      <strong>{event.query}</strong>
+                    </div>
+                  );
+                case 'query-completed':
+                  return (
+                    <div className="result" key={i}>
+                      <span className="badge ok">+{event.resultCount} results</span>{' '}
+                      {event.query} <span className="score">({event.durationMs}ms)</span>
+                    </div>
+                  );
+                case 'page-extracted':
+                  return (
+                    <div className="result" key={i}>
+                      <span className="badge">extracted</span>{' '}
+                      {event.title || event.url}{' '}
+                      <span className="score">{event.contentChars} chars</span>
+                    </div>
+                  );
+                case 'gap-detected':
+                  return (
+                    <div className="result" key={i}>
+                      <span className="badge warn">gap</span> {event.question}
+                    </div>
+                  );
+                default:
+                  return null;
+              }
+            })}
+          </div>
+        </>
+      )}
+
       {report && (
         <>
           <h2>
             Findings · {report.usage.queries} queries · {report.usage.pagesFetched} pages ·{' '}
-            {report.usage.elapsedMs}ms · <span className="badge">{report.termination}</span>
+            <span className="badge">{report.termination}</span>
           </h2>
           <div className="panel">
             <pre className="evidence">{report.findings}</pre>

@@ -14,9 +14,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <a href="/">Overview</a>
           <a href="/search">Search</a>
           <a href="/research">Research</a>
+          <a href="/crawl">Crawl</a>
           <a href="/extract">Extract</a>
           <a href="/providers">Providers</a>
           <a href="/index">Index</a>
+          <a href="/usage">Usage</a>
         </nav>
         <main>{children}</main>
       </body>
