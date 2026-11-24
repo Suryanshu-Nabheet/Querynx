@@ -20,6 +20,7 @@
     "@querynx/extractor": "workspace:*",
     "@querynx/fetcher": "workspace:*",
     "@querynx/indexer": "workspace:*",
+    "@querynx/llm": "workspace:*",
     "@querynx/observability": "workspace:*",
     "@querynx/providers": "workspace:*",
     "@querynx/queue": "workspace:*",

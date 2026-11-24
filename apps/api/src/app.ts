@@ -43,6 +43,13 @@ import { PersistentIndex } from "./persistence.js";
 import { registerApiJobHandlers, serializeJob } from "./jobs.js";
 import { JobBridge, makeDelegatingStore } from "./job-bridge.js";
 import { deliverWebhook, validWebhookTarget } from "./webhooks.js";
+import {
+  createLlmClient,
+  wrapUntrustedContent,
+  ANTI_INJECTION_SYSTEM,
+} from "@querynx/llm";
+import { mapWithConcurrency, extractDomain } from "@querynx/shared";
+import { CrawlEngine, fetchSitemapUrls } from "@querynx/crawler";
 import { JobQueue } from "@querynx/queue";
 import { randomUUID } from "node:crypto";
 
@@ -933,6 +940,497 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
   const indexEngine = persistentIndex.engine;
 
+  // --- v1/answer: grounded answer with citations -------------------------------
+  // LLM-optional: without a configured model the answer is a faithful
+  // extractive summary of the retrieved evidence; with one, the model
+  // synthesizes under the anti-injection wrapper. Either way the
+  // response carries citations and provenance.
+  const llmClient = createLlmClient({
+    baseUrl: process.env["LLM_BASE_URL"],
+    apiKey: process.env["LLM_API_KEY"],
+    model: process.env["LLM_MODEL"],
+    fallbackModel: process.env["LLM_FALLBACK_MODEL"],
+    fallbackBaseUrl: process.env["LLM_FALLBACK_BASE_URL"],
+  });
+
+  app.post(
+    "/v1/answer",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["question"],
+          properties: {
+            question: { type: "string", minLength: 3, maxLength: 500 },
+            maxResults: { type: "integer", minimum: 1, maximum: 20 },
+            includeDomains: {
+              type: "array",
+              items: { type: "string" },
+              maxItems: 20,
+            },
+            excludeDomains: {
+              type: "array",
+              items: { type: "string" },
+              maxItems: 20,
+            },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        question: string;
+        maxResults?: number;
+        includeDomains?: string[];
+        excludeDomains?: string[];
+      };
+
+      // Retrieve supporting evidence through the federated pipeline.
+      const searchResponse = await orchestrator.search({
+        query: body.question,
+        maxResults: body.maxResults ?? 5,
+        includeDomains: body.includeDomains,
+        excludeDomains: body.excludeDomains,
+        freshness: "any",
+        category: "web",
+      });
+
+      const evidence = searchResponse.results;
+      const citations = evidence.map((r, i) => ({
+        index: i + 1,
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet.slice(0, 300),
+      }));
+
+      let answer: string;
+      let synthesized = false;
+      if (llmClient && evidence.length > 0) {
+        try {
+          const grounded = await llmClient.completeWebGrounded(
+            `Answer the operator's question using ONLY the provided web content. Cite sources by their [n] index. Question: ${body.question}`,
+            evidence
+              .map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.snippet}`)
+              .join("\n\n"),
+            { task: "answer" },
+          );
+          answer = grounded.content;
+          synthesized = true;
+        } catch {
+          answer = extractiveAnswer(body.question, evidence);
+        }
+      } else {
+        answer = extractiveAnswer(body.question, evidence);
+      }
+
+      return {
+        answer,
+        synthesized,
+        citations,
+        evidenceCount: evidence.length,
+        question: body.question,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    },
+  );
+
+  // --- v1/rerank: rerank passages/candidates against a query ---------------------
+  // Deterministic by default: BM25-style term scoring over the provided
+  // documents. With a model configured, the LLM judges relevance —
+  // but the deterministic score always ships alongside.
+  app.post(
+    "/v1/rerank",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["query", "documents"],
+          properties: {
+            query: { type: "string", minLength: 1, maxLength: 500 },
+            documents: {
+              type: "array",
+              minItems: 1,
+              maxItems: 50,
+              items: { type: "string", maxLength: 5000 },
+            },
+            topN: { type: "integer", minimum: 1, maximum: 50 },
+            useModel: { type: "boolean" },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        query: string;
+        documents: string[];
+        topN?: number;
+        useModel?: boolean;
+      };
+      const topN = body.topN ?? body.documents.length;
+
+      // Deterministic relevance: term-overlap scoring.
+      const queryTerms = body.query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 1);
+      const scored = body.documents.map((doc, i) => {
+        const docLower = doc.toLowerCase();
+        let hits = 0;
+        for (const term of queryTerms) {
+          if (docLower.includes(term)) hits++;
+        }
+        const relevance =
+          queryTerms.length === 0
+            ? 0
+            : Number((hits / queryTerms.length).toFixed(4));
+        return {
+          index: i,
+          document: doc,
+          relevance,
+          modelScore: null as number | null,
+        };
+      });
+      scored.sort((a, b) => b.relevance - a.relevance);
+
+      // Optional model judgment — appended, never replacing the
+      // deterministic score (§10: models are not basic ranking).
+      if (llmClient && body.useModel) {
+        try {
+          const verdict = await llmClient.completeJson<{
+            scores?: number[];
+          }>(
+            [
+              {
+                role: "system",
+                content: ANTI_INJECTION_SYSTEM,
+              },
+              {
+                role: "user",
+                content:
+                  `Score each document's relevance to the query on 0-1. Reply ONLY with JSON: {"scores":[...]}. ` +
+                  `Query: ${body.query}\n\n` +
+                  wrapUntrustedContent(
+                    body.documents
+                      .map((d, i) => `[${i}] ${d.slice(0, 1000)}`)
+                      .join("\n\n"),
+                  ),
+              },
+            ],
+            { task: "evidence-analysis" },
+          );
+          if (
+            verdict?.scores &&
+            verdict.scores.length === body.documents.length
+          ) {
+            for (const entry of scored) {
+              entry.modelScore = Number(verdict.scores[entry.index]);
+            }
+            scored.sort(
+              (a, b) =>
+                (b.modelScore ?? 0) - (a.modelScore ?? 0) ||
+                b.relevance - a.relevance,
+            );
+          }
+        } catch {
+          // Model rerank is best-effort; deterministic order stands.
+        }
+      }
+
+      const results = scored.slice(0, topN).map((entry) => ({
+        index: entry.index,
+        document: entry.document,
+        relevance: entry.relevance,
+        ...(entry.modelScore !== null ? { modelScore: entry.modelScore } : {}),
+      }));
+
+      return {
+        results,
+        usedModel: llmClient !== null && body.useModel === true,
+        query: body.query,
+        requestId: request.id,
+      };
+    },
+  );
+
+  // --- v1/extract/batch: higher-volume extraction -------------------------------
+  app.post(
+    "/v1/extract/batch",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["urls"],
+          properties: {
+            urls: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 1,
+              maxItems: 50,
+            },
+            format: { type: "string", enum: ["markdown", "html", "text"] },
+            maxContentLength: {
+              type: "integer",
+              minimum: 1000,
+              maximum: 500_000,
+            },
+            timeoutMs: { type: "integer", minimum: 1000, maximum: 60_000 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        urls: string[];
+        format?: "markdown" | "html" | "text";
+        maxContentLength?: number;
+        timeoutMs?: number;
+      };
+
+      const canonical: string[] = [];
+      for (const raw of body.urls) {
+        const url = canonicalizeUrl(raw);
+        if (!url) throw new ValidationError(`Invalid URL: ${raw}`);
+        if (!isSafeOutboundUrl(url)) {
+          throw new ValidationError(`Blocked URL target: ${raw}`);
+        }
+        canonical.push(url);
+      }
+
+      // Bounded concurrency across the batch (§6): 4-wide.
+      const results = await mapWithConcurrency(canonical, 4, async (url) => {
+        try {
+          const fetched = await fetchUrl(url, {
+            timeoutMs: body.timeoutMs ?? 15_000,
+            maxBytes: 5 * 1024 * 1024,
+          });
+          const document = extractDocument(
+            fetched.body,
+            fetched.url,
+            fetched.statusCode,
+            {
+              format: body.format ?? "markdown",
+              maxContentLength: body.maxContentLength ?? 200_000,
+            },
+          );
+          return { url, ok: true, document };
+        } catch (err) {
+          return {
+            url,
+            ok: false,
+            error: err instanceof Error ? err.message : "extraction failed",
+          };
+        }
+      });
+
+      return {
+        results,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    },
+  );
+
+  // --- v1/crawl: start a crawl job (async via the queue) -------------------------
+  app.post(
+    "/v1/crawl",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["seeds"],
+          properties: {
+            seeds: {
+              type: "array",
+              items: { type: "string", maxLength: 2048 },
+              minItems: 1,
+              maxItems: 10,
+            },
+            collection: { type: "string", maxLength: 100 },
+            maxDepth: { type: "integer", minimum: 0, maximum: 5 },
+            maxPages: { type: "integer", minimum: 1, maximum: 200 },
+            allowedDomains: {
+              type: "array",
+              items: { type: "string" },
+              maxItems: 10,
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as {
+        seeds: string[];
+        collection?: string;
+        maxDepth?: number;
+        maxPages?: number;
+        allowedDomains?: string[];
+      };
+
+      // Validate seeds before enqueueing.
+      for (const seed of body.seeds) {
+        const url = canonicalizeUrl(seed);
+        if (!url) throw new ValidationError(`Invalid seed: ${seed}`);
+        if (!isSafeOutboundUrl(url)) {
+          throw new ValidationError(`Blocked seed target: ${seed}`);
+        }
+      }
+
+      const job = await jobBridge.submit(
+        "crawl",
+        {
+          seeds: body.seeds,
+          collection: body.collection ?? "crawled",
+          maxDepth: body.maxDepth ?? 1,
+          maxPages: body.maxPages ?? 20,
+          allowedDomains: body.allowedDomains,
+        },
+        0,
+      );
+      reply.code(202);
+      return { job, requestId: request.id };
+    },
+  );
+
+  // --- v1/map: discover a site's URL structure ------------------------------------
+  // Fetches the sitemap(s) plus a bounded shallow crawl and returns
+  // the site's URL inventory — no content extraction, just the map.
+  app.post(
+    "/v1/map",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["url"],
+          properties: {
+            url: { type: "string", maxLength: 2048 },
+            limit: { type: "integer", minimum: 1, maximum: 500 },
+            includeSitemap: { type: "boolean" },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as {
+        url: string;
+        limit?: number;
+        includeSitemap?: boolean;
+      };
+      const target = canonicalizeUrl(body.url);
+      if (!target) throw new ValidationError(`Invalid URL: ${body.url}`);
+      if (!isSafeOutboundUrl(target)) {
+        throw new ValidationError(`Blocked URL target: ${body.url}`);
+      }
+
+      const limit = body.limit ?? 100;
+      const origin = new URL(target).origin;
+      const discovered = new Set<string>([target]);
+      const baseDomain = extractDomain(target);
+
+      // Sitemap discovery first.
+      if (body.includeSitemap !== false) {
+        try {
+          const sitemapUrls = await fetchSitemapUrls(
+            `${origin}/sitemap.xml`,
+            USER_AGENT,
+          );
+          for (const url of sitemapUrls) {
+            if (discovered.size >= limit) break;
+            if (extractDomain(url) === baseDomain) discovered.add(url);
+          }
+        } catch {
+          // Sitemaps are best-effort.
+        }
+      }
+
+      // Bounded shallow crawl for link discovery (depth 1, no extraction).
+      try {
+        const engine = new CrawlEngine();
+        const report = await engine.crawl(
+          {
+            seeds: [target],
+            maxDepth: 1,
+            maxPages: Math.min(10, limit),
+            strategy: "breadth-first",
+            respectRobots: true,
+            perDomainDelayMs: 500,
+            dedupeByContent: false,
+          },
+          { userAgent: USER_AGENT, maxConcurrency: 2 },
+        );
+        for (const page of report.pages) {
+          if (discovered.size >= limit) break;
+          if (extractDomain(page.url) === baseDomain) discovered.add(page.url);
+          if (page.document) {
+            for (const link of page.document.links) {
+              if (discovered.size >= limit) break;
+              if (extractDomain(link.url) === baseDomain)
+                discovered.add(link.url);
+            }
+          }
+        }
+      } catch {
+        // Crawl failures leave the sitemap results standing.
+      }
+
+      const urls = [...discovered].slice(0, limit);
+      return {
+        base: target,
+        discoveredCount: discovered.size,
+        urls,
+        generatedAt: new Date().toISOString(),
+        requestId: request.id,
+      };
+    },
+  );
+
+  // --- GET /v1/jobs/:id/stream: SSE job progress --------------------------------
+  app.get("/v1/jobs/:id/stream", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    reply.raw.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+    });
+
+    const send = (event: string, data: unknown) => {
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const disconnect = new AbortController();
+    reply.raw.on("close", () => disconnect.abort());
+
+    send("start", { requestId: request.id, jobId: id });
+
+    // Poll the job at 500ms until terminal or client disconnects.
+    for (let tick = 0; tick < 600; tick++) {
+      if (disconnect.signal.aborted) break;
+      const job = await jobBridge.get(id);
+      if (!job) {
+        send("error", { message: `no job ${id}` });
+        break;
+      }
+      send("status", {
+        status: job.status,
+        error: job.error,
+        ...(job.result ? { result: job.result } : {}),
+      });
+      if (["completed", "failed", "cancelled"].includes(job.status)) {
+        send("done", { status: job.status });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    reply.raw.end();
+    return reply;
+  });
+
   // --- v1/usage: request accounting (Postgres-backed) ---------------------------
   app.get("/v1/usage", async (request) => {
     if (!usageStore) {
@@ -1205,9 +1703,30 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   return app;
 
+  const USER_AGENT =
+    "QuerynxBot/0.1 (+https://github.com/Suryanshu-Nabheet/Querynx)";
+
   function extractBearer(header: unknown): string | undefined {
     if (typeof header !== "string") return undefined;
     const match = header.match(/^Bearer\s+(.+)$/i);
     return match?.[1];
   }
+}
+
+/** Deterministic extractive answer: the honest no-model fallback.
+ * Quotes the strongest evidence snippets with citations. */
+function extractiveAnswer(
+  question: string,
+  evidence: ReadonlyArray<{ title: string; url: string; snippet: string }>,
+): string {
+  if (evidence.length === 0) {
+    return `No supporting evidence was found for "${question}".`;
+  }
+  const parts = evidence
+    .slice(0, 3)
+    .map(
+      (r, i) =>
+        `According to ${r.title} [${i + 1}]: ${r.snippet.slice(0, 240)}`,
+    );
+  return `Answering "${question}" from retrieved evidence:\n\n${parts.join("\n\n")}`;
 }

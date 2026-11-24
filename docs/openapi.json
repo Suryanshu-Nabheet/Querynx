@@ -15,14 +15,42 @@
       "description": "Local self-hosted instance"
     }
   ],
-  "security": [{ "apiKey": [] }],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
   "tags": [
-    { "name": "search" },
-    { "name": "extract" },
-    { "name": "index" },
-    { "name": "research" },
-    { "name": "system" },
-    { "name": "compat" }
+    {
+      "name": "search"
+    },
+    {
+      "name": "extract"
+    },
+    {
+      "name": "index"
+    },
+    {
+      "name": "research"
+    },
+    {
+      "name": "system"
+    },
+    {
+      "name": "compat"
+    },
+    {
+      "name": "answer"
+    },
+    {
+      "name": "rerank"
+    },
+    {
+      "name": "crawl"
+    },
+    {
+      "name": "jobs"
+    }
   ],
   "components": {
     "securitySchemes": {
@@ -40,9 +68,15 @@
           "error": {
             "type": "object",
             "properties": {
-              "code": { "type": "string" },
-              "message": { "type": "string" },
-              "requestId": { "type": "string" }
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              }
             }
           }
         }
@@ -51,37 +85,74 @@
         "type": "object",
         "required": ["title", "url", "snippet", "score", "provider"],
         "properties": {
-          "title": { "type": "string" },
-          "url": { "type": "string", "format": "uri" },
-          "snippet": { "type": "string" },
-          "content": { "type": "string" },
-          "score": { "type": "number" },
-          "publishedAt": { "type": "string", "format": "date-time" },
-          "provider": { "type": "string" },
-          "metadata": { "type": "object", "additionalProperties": true }
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
         }
       },
       "SearchDiagnostics": {
         "type": "object",
         "properties": {
-          "providersQueried": { "type": "integer" },
-          "providersSucceeded": { "type": "integer" },
-          "cacheHit": { "type": "boolean" },
-          "rawResultCount": { "type": "integer" },
-          "duplicateCount": { "type": "integer" },
+          "providersQueried": {
+            "type": "integer"
+          },
+          "providersSucceeded": {
+            "type": "integer"
+          },
+          "cacheHit": {
+            "type": "boolean"
+          },
+          "rawResultCount": {
+            "type": "integer"
+          },
+          "duplicateCount": {
+            "type": "integer"
+          },
           "attempts": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "provider": { "type": "string" },
+                "provider": {
+                  "type": "string"
+                },
                 "status": {
                   "type": "string",
                   "enum": ["ok", "error", "skipped", "degraded"]
                 },
-                "resultCount": { "type": "integer" },
-                "durationMs": { "type": "integer" },
-                "error": { "type": "string" }
+                "resultCount": {
+                  "type": "integer"
+                },
+                "durationMs": {
+                  "type": "integer"
+                },
+                "error": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -93,12 +164,23 @@
         "properties": {
           "results": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/SearchResult" }
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            }
           },
-          "query": { "type": "string" },
-          "generatedAt": { "type": "string", "format": "date-time" },
-          "diagnostics": { "$ref": "#/components/schemas/SearchDiagnostics" },
-          "requestId": { "type": "string" }
+          "query": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/SearchDiagnostics"
+          },
+          "requestId": {
+            "type": "string"
+          }
         }
       },
       "ExtractRequest": {
@@ -107,20 +189,36 @@
         "properties": {
           "urls": {
             "type": "array",
-            "items": { "type": "string", "format": "uri" },
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
             "minItems": 1,
             "maxItems": 10
           },
-          "format": { "type": "string", "enum": ["markdown", "html", "text"] },
-          "includeLinks": { "type": "boolean" },
-          "includeTables": { "type": "boolean" },
-          "includeMetadata": { "type": "boolean" },
+          "format": {
+            "type": "string",
+            "enum": ["markdown", "html", "text"]
+          },
+          "includeLinks": {
+            "type": "boolean"
+          },
+          "includeTables": {
+            "type": "boolean"
+          },
+          "includeMetadata": {
+            "type": "boolean"
+          },
           "maxContentLength": {
             "type": "integer",
             "minimum": 1000,
             "maximum": 500000
           },
-          "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 60000 }
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000
+          }
         }
       },
       "ExtractedDocument": {
@@ -134,15 +232,40 @@
           "fetchedAt"
         ],
         "properties": {
-          "url": { "type": "string", "format": "uri" },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "format": { "type": "string", "enum": ["markdown", "html", "text"] },
-          "metadata": { "type": "object", "additionalProperties": true },
-          "fingerprint": { "type": "string" },
-          "statusCode": { "type": "integer" },
-          "fetchedAt": { "type": "string", "format": "date-time" },
-          "warnings": { "type": "array", "items": { "type": "string" } }
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["markdown", "html", "text"]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "integer"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "ExtractResponse": {
@@ -155,17 +278,29 @@
               "type": "object",
               "required": ["url", "ok"],
               "properties": {
-                "url": { "type": "string", "format": "uri" },
-                "ok": { "type": "boolean" },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
                 "document": {
                   "$ref": "#/components/schemas/ExtractedDocument"
                 },
-                "error": { "type": "string" }
+                "error": {
+                  "type": "string"
+                }
               }
             }
           },
-          "generatedAt": { "type": "string", "format": "date-time" },
-          "requestId": { "type": "string" }
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requestId": {
+            "type": "string"
+          }
         }
       },
       "ResearchReport": {
@@ -180,7 +315,9 @@
           "termination"
         ],
         "properties": {
-          "objective": { "type": "string" },
+          "objective": {
+            "type": "string"
+          },
           "mode": {
             "type": "string",
             "enum": [
@@ -193,19 +330,35 @@
               "documentation"
             ]
           },
-          "findings": { "type": "string" },
+          "findings": {
+            "type": "string"
+          },
           "evidence": {
             "type": "array",
             "items": {
               "type": "object",
               "required": ["url", "title", "passage", "relevance"],
               "properties": {
-                "url": { "type": "string", "format": "uri" },
-                "title": { "type": "string" },
-                "passage": { "type": "string" },
-                "stepQuery": { "type": "string" },
-                "relevance": { "type": "number" },
-                "publishedAt": { "type": "string", "format": "date-time" }
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "passage": {
+                  "type": "string"
+                },
+                "stepQuery": {
+                  "type": "string"
+                },
+                "relevance": {
+                  "type": "number"
+                },
+                "publishedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             }
           },
@@ -214,10 +367,14 @@
             "items": {
               "type": "object",
               "properties": {
-                "question": { "type": "string" },
+                "question": {
+                  "type": "string"
+                },
                 "attemptedQueries": {
                   "type": "array",
-                  "items": { "type": "string" }
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -225,10 +382,18 @@
           "usage": {
             "type": "object",
             "properties": {
-              "queries": { "type": "integer" },
-              "pagesFetched": { "type": "integer" },
-              "elapsedMs": { "type": "integer" },
-              "contentChars": { "type": "integer" }
+              "queries": {
+                "type": "integer"
+              },
+              "pagesFetched": {
+                "type": "integer"
+              },
+              "elapsedMs": {
+                "type": "integer"
+              },
+              "contentChars": {
+                "type": "integer"
+              }
             }
           },
           "termination": {
@@ -252,16 +417,28 @@
           "configured"
         ],
         "properties": {
-          "name": { "type": "string" },
+          "name": {
+            "type": "string"
+          },
           "state": {
             "type": "string",
             "enum": ["closed", "open", "half-open"]
           },
-          "consecutiveFailures": { "type": "integer" },
-          "successRate": { "type": "number" },
-          "medianLatencyMs": { "type": "number" },
-          "configured": { "type": "boolean" },
-          "note": { "type": "string" }
+          "consecutiveFailures": {
+            "type": "integer"
+          },
+          "successRate": {
+            "type": "number"
+          },
+          "medianLatencyMs": {
+            "type": "number"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
         }
       }
     }
@@ -294,16 +471,24 @@
                   },
                   "includeDomains": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "maxItems": 20
                   },
                   "excludeDomains": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "maxItems": 20
                   },
-                  "language": { "type": "string" },
-                  "region": { "type": "string" },
+                  "language": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
                   "freshness": {
                     "type": "string",
                     "enum": ["any", "day", "week", "month", "year"]
@@ -314,7 +499,9 @@
                   },
                   "providers": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "maxItems": 10
                   }
                 }
@@ -327,7 +514,9 @@
             "description": "Search results",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SearchResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
               }
             }
           },
@@ -335,7 +524,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           },
@@ -343,7 +534,9 @@
             "description": "Missing or invalid API key",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           },
@@ -351,7 +544,9 @@
             "description": "Rate limited",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -374,7 +569,9 @@
                 "properties": {
                   "queries": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "minItems": 1,
                     "maxItems": 20
                   },
@@ -400,13 +597,22 @@
                       "type": "array",
                       "items": {
                         "oneOf": [
-                          { "$ref": "#/components/schemas/SearchResponse" },
+                          {
+                            "$ref": "#/components/schemas/SearchResponse"
+                          },
                           {
                             "type": "object",
                             "properties": {
-                              "query": { "type": "string" },
-                              "ok": { "type": "boolean", "const": false },
-                              "error": { "type": "string" }
+                              "query": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean",
+                                "const": false
+                              },
+                              "error": {
+                                "type": "string"
+                              }
                             }
                           }
                         ]
@@ -439,17 +645,32 @@
                     "minLength": 1,
                     "maxLength": 500
                   },
-                  "collection": { "type": "string" },
-                  "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
-                  "domains": { "type": "array", "items": { "type": "string" } },
-                  "publishedAfter": { "type": "string" }
+                  "collection": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "domains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "publishedAfter": {
+                    "type": "string"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Corpus hits with matched terms" }
+          "200": {
+            "description": "Corpus hits with matched terms"
+          }
         }
       }
     },
@@ -466,7 +687,11 @@
               "schema": {
                 "type": "object",
                 "required": ["query"],
-                "properties": { "query": { "type": "string" } }
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -475,7 +700,11 @@
           "200": {
             "description": "SSE event stream",
             "content": {
-              "text/event-stream": { "schema": { "type": "string" } }
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           }
         }
@@ -490,7 +719,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ExtractRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ExtractRequest"
+              }
             }
           }
         },
@@ -499,7 +730,9 @@
             "description": "Extracted documents",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ExtractResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResponse"
+                }
               }
             }
           },
@@ -507,7 +740,9 @@
             "description": "Blocked or invalid URLs (SSRF protection)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -533,16 +768,27 @@
                     "minLength": 1,
                     "maxLength": 100
                   },
-                  "url": { "type": "string", "format": "uri" },
-                  "content": { "type": "string", "maxLength": 500000 },
-                  "title": { "type": "string", "maxLength": 500 }
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 500000
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Indexed document and corpus stats" }
+          "200": {
+            "description": "Indexed document and corpus stats"
+          }
         }
       }
     },
@@ -552,7 +798,9 @@
         "summary": "Corpus statistics",
         "operationId": "indexStats",
         "responses": {
-          "200": { "description": "Document/collection/term counts" }
+          "200": {
+            "description": "Document/collection/term counts"
+          }
         }
       }
     },
@@ -613,7 +861,9 @@
             "description": "Research report with evidence and events",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ResearchReport" }
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchReport"
+                }
               }
             }
           }
@@ -634,8 +884,12 @@
                 "type": "object",
                 "required": ["objective"],
                 "properties": {
-                  "objective": { "type": "string" },
-                  "mode": { "type": "string" }
+                  "objective": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -645,7 +899,11 @@
           "200": {
             "description": "SSE event stream",
             "content": {
-              "text/event-stream": { "schema": { "type": "string" } }
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           }
         }
@@ -666,7 +924,9 @@
                   "properties": {
                     "providers": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/ProviderHealth" }
+                      "items": {
+                        "$ref": "#/components/schemas/ProviderHealth"
+                      }
                     }
                   }
                 }
@@ -691,26 +951,39 @@
                 "type": "object",
                 "required": ["query"],
                 "properties": {
-                  "api_key": { "type": "string" },
-                  "query": { "type": "string" },
+                  "api_key": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
                   "search_depth": {
                     "type": "string",
                     "enum": ["basic", "advanced"]
                   },
-                  "topic": { "type": "string", "enum": ["general", "news"] },
+                  "topic": {
+                    "type": "string",
+                    "enum": ["general", "news"]
+                  },
                   "max_results": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 20
                   },
-                  "include_answer": { "type": "boolean" },
+                  "include_answer": {
+                    "type": "boolean"
+                  },
                   "include_domains": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                      "type": "string"
+                    }
                   },
                   "exclude_domains": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                      "type": "string"
+                    }
                   },
                   "time_range": {
                     "type": "string",
@@ -729,28 +1002,46 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "query": { "type": "string" },
-                    "answer": { "type": "string" },
+                    "query": {
+                      "type": "string"
+                    },
+                    "answer": {
+                      "type": "string"
+                    },
                     "results": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "title": { "type": "string" },
-                          "url": { "type": "string" },
-                          "content": { "type": "string" },
-                          "score": { "type": "number" },
-                          "published_date": { "type": "string" }
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "content": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          },
+                          "published_date": {
+                            "type": "string"
+                          }
                         }
                       }
                     },
-                    "response_time": { "type": "number" }
+                    "response_time": {
+                      "type": "number"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "description": "Invalid key (Tavily envelope: {detail})" }
+          "401": {
+            "description": "Invalid key (Tavily envelope: {detail})"
+          }
         }
       }
     },
@@ -760,7 +1051,11 @@
         "summary": "Liveness probe",
         "security": [],
         "operationId": "health",
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
       }
     },
     "/ready": {
@@ -770,7 +1065,9 @@
         "security": [],
         "operationId": "ready",
         "responses": {
-          "200": { "description": "ready or degraded with details" }
+          "200": {
+            "description": "ready or degraded with details"
+          }
         }
       }
     },
@@ -783,7 +1080,294 @@
         "responses": {
           "200": {
             "description": "Prometheus text format",
-            "content": { "text/plain": { "schema": { "type": "string" } } }
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/answer": {
+      "post": {
+        "tags": ["answer"],
+        "summary": "Grounded answer with citations",
+        "description": "Retrieves evidence through federated search, then answers with citations. Deterministic extractive answer without a model; LLM synthesis when one is configured (anti-injection wrapped).",
+        "operationId": "answer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["question"],
+                "additionalProperties": false,
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  },
+                  "maxResults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  },
+                  "includeDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 20
+                  },
+                  "excludeDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 20
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Answer with citations and provenance"
+          }
+        }
+      }
+    },
+    "/v1/rerank": {
+      "post": {
+        "tags": ["rerank"],
+        "summary": "Rerank documents against a query",
+        "description": "Deterministic term-overlap relevance scoring; optional model judgment appended (never replacing the deterministic score).",
+        "operationId": "rerank",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query", "documents"],
+                "additionalProperties": false,
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "documents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  },
+                  "topN": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "useModel": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reranked documents with relevance scores"
+          }
+        }
+      }
+    },
+    "/v1/extract/batch": {
+      "post": {
+        "tags": ["extract"],
+        "summary": "Batch extraction (up to 50 URLs)",
+        "description": "Bounded 4-wide concurrent extraction; per-URL ok/error envelopes; identical SSRF validation.",
+        "operationId": "extractBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["urls"],
+                "additionalProperties": false,
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": ["markdown", "html", "text"]
+                  },
+                  "maxContentLength": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 500000
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 60000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-URL extraction results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/crawl": {
+      "post": {
+        "tags": ["crawl"],
+        "summary": "Start a crawl job",
+        "description": "Submits a robots-compliant crawl to the durable job queue (202 + poll handle). Extracted pages auto-ingest into the corpus.",
+        "operationId": "crawl",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["seeds"],
+                "additionalProperties": false,
+                "properties": {
+                  "seeds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 10
+                  },
+                  "collection": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "maxDepth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "maxPages": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  },
+                  "allowedDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Job handle for polling /v1/jobs/:id"
+          }
+        }
+      }
+    },
+    "/v1/map": {
+      "post": {
+        "tags": ["crawl"],
+        "summary": "Discover a site's URL structure",
+        "description": "Sitemap parsing plus bounded shallow link discovery; returns the URL inventory without content extraction.",
+        "operationId": "mapSite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["url"],
+                "additionalProperties": false,
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  },
+                  "includeSitemap": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Discovered URL inventory"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/stream": {
+      "get": {
+        "tags": ["jobs"],
+        "summary": "SSE job progress",
+        "description": "Server-Sent Events: start, status (polled 500ms), done. Stream ends at terminal job state or client disconnect.",
+        "operationId": "jobStream",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }

@@ -241,7 +241,10 @@ export class LlmClient {
     return this.complete(
       [
         { role: "system", content: ANTI_INJECTION_SYSTEM },
-        { role: "user", content: `${instruction}\n\n${wrapUntrustedContent(webContent)}` },
+        {
+          role: "user",
+          content: `${instruction}\n\n${wrapUntrustedContent(webContent)}`,
+        },
       ],
       options,
     );
