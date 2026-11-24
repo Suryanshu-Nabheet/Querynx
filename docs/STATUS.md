@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-24 (after §12/§13 completion — LLM integration + full endpoint surface)
+Last updated: 2026-11-24 (after release-acceptance audit)
 
 ## Validated and working
 
@@ -78,16 +78,65 @@ Both fixed; suite now guards against regression.
 - Shared cross-layer fixtures (robots/html/sitemap/attacks) with
   integrity tests.
 
+## Release-acceptance audit (external-style review)
+
+An adversarial audit re-verified every major claim by execution. Findings
+fixed in this pass:
+
+1. **Tavily adapter never sent its query** — bare GET with the request
+   body built after the fetch (dead code). Caught by writing wire-contract
+   tests against each provider's documented format; all fake-based tests
+   had passed. Fixed + wire suite added.
+2. **Every hostname fetch on a real network failed** ('Invalid IP
+   address: undefined') — the validating DNS lookup answered in
+   single-address form while undici reads the all-form array. Only
+   loopback-literal fixtures had ever run, so no suite caught it. Fixed
+   with the proper dual-form contract + hostname regression tests.
+3. **Plain-text documents lost their beginnings** — text/plain input ran
+   through Readability, which discarded RFC title pages as boilerplate.
+   Plain-text detection + verbatim path added; verified live.
+4. **Compressed mapped-IPv6 SSRF bypass** — [::ffff:169.254.169.254]
+   normalizes to hex-compressed form ([::ffff:a9fe:a9fe]) which the
+   dotted-quad check missed. Decoder added; 3 regression vectors.
+5. **Contradiction detection was a type value with no implementation** —
+   §11 step 10 now implemented conservatively (single-value factual
+   claims; probe step; report field) with end-to-end tests.
+6. **Published quality numbers were stale** — the committed corpus
+   measured MRR 1.00/NDCG 1.00, not the published 0.88/0.80. Numbers
+   corrected, corpus expanded from 7 to 20 docs with competitive
+   distractors, thresholds set just below measurement.
+7. **Live 99-query evaluation** (real fetched corpus): MRR 1.000,
+   recall@5 100%, p99 0.38ms — and 3/19 false positives on nonsense
+   queries, fixed by BM25 floor + query-coverage gates (now 1/19, the
+   remaining case is an honest borderline recorded below).
+8. **Env-key auth compared secrets with non-constant-time includes** —
+   now hash-compared via timingSafeEqual, matching the DB path.
+
+Fresh-clone verification (the newcomer test): frozen install 2.5s,
+typecheck 34/34, tests 33/33 tasks, server boots with auth enforced.
+
 ## Known limitations
 
-- Embeddings default to deterministic hash vectors; the OpenAI-
-  compatible embedder activates only when configured.
-- Postgres rehydration loads the corpus into memory on boot; very
-  large corpora will need the SQL read path (fullTextSearch) exposed.
-- The worker service and API share handler contracts but the Postgres
-  jobs-table bridge between them (worker claiming API-submitted jobs)
-  is not yet wired: API-submitted jobs run on the API's in-process
-  queue today.
+- **No search provider runs by default**: federated web search needs a
+  SearXNG instance or a Brave/Tavily key. Without one, search returns
+  honest empty results with per-provider diagnostics. This is the
+  platform's biggest usability gap for a first-time user — the
+  documented Docker quickstart ships SearXNG, but it requires Docker.
+- One live-eval false positive remains: 'kubernetes operator pattern'
+  matches the genuine HTTP term 'operator' at exactly the 1/3 coverage
+  minimum. Deliberately not overfit to a 7-document corpus.
+- Embeddings default to deterministic hash vectors; the OpenAI-compatible
+  embedder activates only when configured.
+- Postgres rehydration loads the corpus into memory on boot; very large
+  corpora will need the SQL read path (fullTextSearch) exposed.
+- The worker service and API share handler contracts; the Postgres
+  jobs-table bridge (workers claiming API-submitted jobs) requires
+  QUERYNX_DELEGATE_JOBS=1 + DATABASE_URL. API-submitted jobs run
+  in-process otherwise.
+- Browser rendering is an operator opt-in (QUERYNX_BROWSER_PATH); no
+  browser ships with the default stack.
+- Research synthesis is extractive by default; LLM synthesis requires
+  LLM_BASE_URL + LLM_MODEL. The platform is fully functional without.
 
 ## Next tasks (priority order)
 

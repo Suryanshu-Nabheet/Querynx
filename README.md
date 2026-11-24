@@ -17,10 +17,26 @@ retrieval, autonomous research orchestration — as software you run and own.
 
 ## Status
 
-Early, active development. The core foundation packages are implemented and
-tested; the HTTP API, indexing and research engine are landing next. See
-[ROADMAP.md](./ROADMAP.md) and [docs/STATUS.md](./docs/STATUS.md) for the
-current state.
+Working, audited 0.1.x. The full pipeline — federated search, extraction,
+crawling, native BM25 corpus, bounded research with evidence citations and
+contradiction detection, jobs, SSE streaming, SDKs and MCP — is implemented
+and tested (460+ test assertions across 33 packages, three CI workflows).
+Quality and performance numbers are measured, not claimed, and reproduce
+from committed fixtures: see [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) for
+the evaluation methodology (including a live-corpus 99-query run) and
+[docs/STATUS.md](./docs/STATUS.md) for current state and known limitations.
+
+### Verified by external-style audit (not self-reported)
+
+- Real-network fetching, extraction and research verified against
+  live sources (rfc-editor.org, iana.org) during a fresh-clone audit
+- Two production-blocking defects found and fixed by that audit:
+  every hostname fetch was broken (DNS lookup callback contract), and
+  plain-text documents lost their beginnings to the readability filter
+- SSRF surface re-audited: compressed mapped-IPv6 metadata bypass fixed
+- Provider wire contracts (SearXNG, Brave, Tavily) verified against
+  documented request/response shapes, not fakes — which caught the
+  Tavily adapter never sending its query
 
 ## Monorepo layout
 
