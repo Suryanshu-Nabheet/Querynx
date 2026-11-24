@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "integrations/*"
+  - "sdk/typescript"
+  - "benchmarks"
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,28 @@
+{
+  "name": "@querynx/extractor",
+  "version": "0.1.0",
+  "description": "Content extraction: readability, metadata, chunking, sanitization",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@querynx/shared": "workspace:*",
+    "@querynx/types": "workspace:*",
+    "@mozilla/readability": "^0.5.0",
+    "linkedom": "^0.18.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}
