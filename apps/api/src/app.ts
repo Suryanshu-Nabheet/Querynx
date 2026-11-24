@@ -41,6 +41,7 @@ import type { SearchQuery, SearchResponse } from '@querynx/types';
 import type { ApiConfig } from './config.js';
 import { PersistentIndex } from './persistence.js';
 import { registerApiJobHandlers, serializeJob } from './jobs.js';
+import { JobBridge, makeDelegatingStore } from './job-bridge.js';
 import { JobQueue } from '@querynx/queue';
 import { randomUUID } from 'node:crypto';
 
@@ -811,6 +812,15 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // drops in for multi-worker deployments when DATABASE_URL is set.
   const jobQueue = deps.jobQueue ?? new JobQueue({ concurrency: 2 });
   registerApiJobHandlers({ queue: jobQueue, index: persistentIndex });
+  // Delegation: with DATABASE_URL + QUERYNX_DELEGATE_JOBS=1, submitted
+  // jobs persist for fleet workers instead of running in-process.
+  const dbStores = config.databaseUrl ? connectStores(config.databaseUrl) : undefined;
+  const jobBridge = new JobBridge({
+    queue: jobQueue,
+    ...(config.databaseUrl && process.env['QUERYNX_DELEGATE_JOBS'] === '1'
+      ? { store: makeDelegatingStore(dbStores!.jobStore) }
+      : {}),
+  });
 
   app.post(
     '/v1/jobs',
@@ -849,11 +859,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         throw new ValidationError('research jobs require payload.objective');
       }
 
-      const job = jobQueue.enqueue(body.type, body.payload, {
-        priority: body.priority ?? 0,
-      });
+      const job = await jobBridge.submit(body.type, body.payload, body.priority ?? 0);
       reply.code(202);
-      return { job: serializeJob(job), requestId: request.id };
+      return { job, requestId: request.id };
     }
   );
 
@@ -878,8 +886,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   app.get('/v1/jobs', async (request) => ({
-    stats: jobQueue.stats(),
+    stats: jobBridge.stats() ?? { delegated: true },
     deadLetters: jobQueue.deadLetters().slice(-20).map(serializeJob),
+    delegated: jobBridge.delegated,
     requestId: request.id,
   }));
 
